@@ -23,23 +23,22 @@ for filename in os.listdir('sequences'):
     data = json.load(f)
     nodeName = data['query'][3:]
     if 'results' in data and 'comment' in data['results'][0]:
+        authors = []
         for s in data['results'][0]['comment']:
             x = re.search(r"- _([a-zA-Z., -]+)_", s)
             if x:
-                author = x.group(1)
-                if author in authors:
-                    if nodeName not in authors[author]:
-                        authors[author].append(nodeName)
-                else:
-                    authors[author] = [nodeName]
+                authors.append(x.group(1))
+            
+        if (len(authors) == 0):
+            print(f"file {nodeName} does not have authors")
+        else:
+            G.add_edges_from(itertools.combinations(authors, 2), label=nodeName)
 
-    G.add_node(nodeName)
+    else:
+        print(f"file {nodeName} does not have comment section")
     f.close()
 
-print("\nData imported. Creating graph...")
+print("\nData import completed. Creating graph...")
 
-for author in authors:
-    G.add_edges_from(itertools.combinations(authors.get(author), 2))
-    
 print(G)
 

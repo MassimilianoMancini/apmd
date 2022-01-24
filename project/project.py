@@ -1,11 +1,22 @@
 import os
 import json
-import networkx as nx
+import re
 
-G = nx.Graph()
+authors = {}
+p = re.compile("- _+_")
+"""
 for filename in os.listdir("sequences"):
     with open(os.path.join("sequences", filename), 'r') as f:
-        nodeName = json.load(f)['query'][3:]
+        comments = json.load(f)['comments']
+
         G.add_node(nodeName)
-        print('Added node [%s%%]\r'%nodeName, end="")
+        print(f"Adding node [{nodeName}]\r", end = "")
+"""
+
+with open(os.path.join("sequences"), "A000045.json", 'r') as f:
+    comments = json.load(f)['comments']
+    
+
+
+
 print(G)

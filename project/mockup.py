@@ -4,10 +4,32 @@ import os
 import itertools
 import networkx as nx
 
+class ViewProgress:
+    def __init__(self, t):
+        self.t = t
+        self.i = 0.0
+        self.j = 1
+        print ("Import data from files")
+        print ("0%", end="")
+
+    
+    def update(self):
+        self.i = self.i + (100/self.t)
+        if (self.i > self.j and self.j <= 100):
+            print (".", end="")
+            self.j = self.j + 1
+            if (self.j % 10 == 0):
+                print (f"{self.j}%", end="")
+
+        if (self.i == self.t): 
+            print (f"{self.i} files imported")
+        
 class OEISJsonFiles:
     def withCommentSection(self, path):
+
         files = os.listdir(path)
         items = []
+        vp = ViewProgress(len(files))
         for filename in files:
             with open(os.path.join(path, filename)) as f:
                 file = {}
@@ -16,6 +38,7 @@ class OEISJsonFiles:
                 if 'results' in jsonData and 'comment' in jsonData['results'][0]:
                     file['comment'] = jsonData['results'][0]['comment']
                     items.append(file)
+                vp.update()
         return items
 
 class APMDGraph(nx.Graph):    
@@ -23,7 +46,6 @@ class APMDGraph(nx.Graph):
         authors = {}
         i = 0.0
         j = 1
-        G = nx.Graph()
         oeisfiles = OEISJsonFiles()
         files = oeisfiles.withCommentSection(path)
         for file in files:            
@@ -34,7 +56,7 @@ class APMDGraph(nx.Graph):
                     authors.append(x.group(1))
                         
             if (len(authors) >= 2):
-                G.add_edges_from(itertools.combinations(authors, 2), label=file['id'])
+                self.add_edges_from(itertools.combinations(authors, 2), label=file['id'])
 
 g = APMDGraph()
 g.createFromFiles('sequences')

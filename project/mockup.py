@@ -1,4 +1,3 @@
-import json
 import re
 import os
 import itertools
@@ -9,10 +8,9 @@ class ViewProgress:
         self.t = t
         self.i = 0.0
         self.j = 1
-        print ("Import data from files")
+        print ("Import data from IMDB file")
         print ("0%", end="")
 
-    
     def update(self):
         self.i = self.i + (100/self.t)
         if (self.i > self.j and self.j <= 100):
@@ -22,24 +20,23 @@ class ViewProgress:
                 print (f"{self.j}%", end="")
 
         if (self.i == self.t): 
-            print (f"{self.i} files imported")
+            print (f"{self.i} tsv file imported")
         
-class OEISJsonFiles:
-    def withCommentSection(self, path):
+class IMDBFile:
 
-        files = os.listdir(path)
-        items = []
-        vp = ViewProgress(len(files))
-        for filename in files:
-            with open(os.path.join(path, filename)) as f:
-                file = {}
-                jsonData = json.load(f)
-                file['id'] = jsonData['query'][3:]
-                if 'results' in jsonData and 'comment' in jsonData['results'][0]:
-                    file['comment'] = jsonData['results'][0]['comment']
-                    items.append(file)
-                vp.update()
-        return items
+    files = os.listdir(path)
+    items = []
+    vp = ViewProgress(len(files))
+    for filename in files:
+        with open(os.path.join(path, filename)) as f:
+            file = {}
+            jsonData = json.load(f)
+            file['id'] = jsonData['query'][3:]
+            if 'results' in jsonData and 'comment' in jsonData['results'][0]:
+                file['comment'] = jsonData['results'][0]['comment']
+                items.append(file)
+            vp.update()
+    return items
 
 class APMDGraph(nx.Graph):    
     def createFromFiles(self, path):

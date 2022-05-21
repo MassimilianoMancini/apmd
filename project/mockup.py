@@ -23,19 +23,13 @@ class ViewProgress:
             print (f"{self.i} tsv file imported")
         
 class IMDBFile:
-
-    files = os.listdir(path)
-    items = []
-    vp = ViewProgress(len(files))
-    for filename in files:
-        with open(os.path.join(path, filename)) as f:
-            file = {}
-            jsonData = json.load(f)
-            file['id'] = jsonData['query'][3:]
-            if 'results' in jsonData and 'comment' in jsonData['results'][0]:
-                file['comment'] = jsonData['results'][0]['comment']
-                items.append(file)
-            vp.update()
+    with open(os.path.join(path, filename)) as f:
+        file = {}
+        file['id'] = jsonData['query'][3:]
+        if 'results' in jsonData and 'comment' in jsonData['results'][0]:
+            file['comment'] = jsonData['results'][0]['comment']
+            items.append(file)
+        vp.update()
     return items
 
 class APMDGraph(nx.Graph):    

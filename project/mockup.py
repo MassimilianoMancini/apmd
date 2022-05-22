@@ -56,8 +56,8 @@ class MovieGraph():
 path = "project/imdb-actors-actresses-movies.tsv"
 G = MovieGraph(path)
 # You could split into two sections: first find problems, second fast create consistent graph
-G.logProblems()
-print ("Problems found")
+# G.logProblems()
+# print ("Problems found")
 # Create graph after problems were found
 G.createFromFile()
 print (G.graph)

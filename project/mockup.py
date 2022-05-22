@@ -50,6 +50,15 @@ class MovieGraph():
                 self.graph.add_node(movie, type="movie", year=year)
                 self.graph.add_edge(actor, movie)
         f.close
+    
+    def mostActiveActorUntil(self, year):
+        def filterNode(n):
+            return n["type"] == "actor"
+
+        subG = nx.subgraph_view(self.graph, filter_node=filterNode)
+        for actor in subG:
+            
+
 
 
 # START HERE

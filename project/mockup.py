@@ -2,7 +2,7 @@ import logging
 import re
 import networkx as nx
 
-class MovieGraph():
+class IMDBGraph():
     def __init__(self, path):
         self.graph = nx.Graph()
         self.path = path
@@ -13,6 +13,10 @@ class MovieGraph():
         # third optional group slash with roman numbers
         # four group a closing parenthesis
         self.reForYear = re.compile("(\()(\d\d\d\d)([/IXV])*(\))")
+        self.actorSubGraph = {}
+        self.movieSubGraph = {}
+        
+
 
     def logProblems(self):
         log = open("project/MovieGraphImportLogger.log", "w")
@@ -47,26 +51,30 @@ class MovieGraph():
                 # get second group, 4 digits i.e. the year
                 year = y.group(2)
                 self.graph.add_node(actor, type="actor")
-                self.graph.add_node(movie, type="movie", year=year)
+                self.graph.add_node(movie, type="movie", year=int(year))
                 self.graph.add_edge(actor, movie)
+        self.actorSubGraph = {n for n, d in self.graph.nodes(data=True) if d['type'] == 'actor'}
+        self.movieSubGraph = {n for n, d in self.graph.nodes(data=True) if d['type'] == 'movie'}
         f.close
     
     def mostActiveActorUntil(self, year):
-        def filterNode(n):
-            return n["type"] == "actor"
-
-        subG = nx.subgraph_view(self.graph, filter_node=filterNode)
-        for actor in subG:
-            
-
-
+        maxUntilNow = 0
+        mostActiveActor = ""
+        for actor in self.actorSubGraph:
+            if self.graph.degree(actor) > maxUntilNow:
+                i = sum(1 for m in self.graph[actor] if nx.get_node_attributes(self.graph, 'year')[m] <= year)
+                maxUntilNow = max(maxUntilNow, i)
+            mostActiveActor = actor
+        return mostActiveActor
 
 # START HERE
-path = "project/imdb-actors-actresses-movies.tsv"
-G = MovieGraph(path)
+path = "project/test.tsv"
+G = IMDBGraph(path)
 # You could split into two sections: first find problems, second fast create consistent graph
 # G.logProblems()
 # print ("Problems found")
 # Create graph after problems were found
 G.createFromFile()
 print (G.graph)
+a = G.mostActiveActorUntil(1980)
+print(a)

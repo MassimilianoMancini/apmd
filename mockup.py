@@ -63,8 +63,9 @@ class IMDBGraph():
         for actor in self.actorSubGraph:
             if self.graph.degree(actor) > maxUntilNow:
                 i = sum(1 for m in self.graph[actor] if nx.get_node_attributes(self.graph, 'year')[m] <= year)
-                maxUntilNow = max(maxUntilNow, i)
-            mostActiveActor = actor
+                if i > maxUntilNow:
+                    maxUntilNow = i
+                    mostActiveActor = actor
         return mostActiveActor
 
 # START HERE
@@ -76,5 +77,5 @@ G = IMDBGraph(path)
 # Create graph after problems were found
 G.createFromFile()
 print (G.graph)
-a = G.mostActiveActorUntil(1980)
+a = G.mostActiveActorUntil(2010)
 print(a)

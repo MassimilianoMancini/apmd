@@ -19,7 +19,7 @@ class IMDBGraph():
 
 
     def logProblems(self):
-        log = open("project/MovieGraphImportLogger.log", "w")
+        log = open("MovieGraphImportLogger.log", "w")
         G = nx.Graph()
 
         f = open(self.path, "r")
@@ -68,7 +68,7 @@ class IMDBGraph():
         return mostActiveActor
 
 # START HERE
-path = "project/test.tsv"
+path = "test.tsv"
 G = IMDBGraph(path)
 # You could split into two sections: first find problems, second fast create consistent graph
 # G.logProblems()

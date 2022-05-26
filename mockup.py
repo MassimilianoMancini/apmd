@@ -1,6 +1,7 @@
 import logging
 import re
 import networkx as nx
+from datetime import datetime
 
 class IMDBGraph():
     def __init__(self, path):
@@ -69,13 +70,17 @@ class IMDBGraph():
         return mostActiveActor
 
 # START HERE
-path = "test.tsv"
+path = "imdb-actors-actresses-movies.tsv"
 G = IMDBGraph(path)
 # You could split into two sections: first find problems, second fast create consistent graph
 # G.logProblems()
 # print ("Problems found")
 # Create graph after problems were found
+print(datetime.now().time())
 G.createFromFile()
+print(datetime.now().time())
 print (G.graph)
+print(datetime.now().time())
 a = G.mostActiveActorUntil(2010)
+print(datetime.now().time())
 print(a)

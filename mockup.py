@@ -25,12 +25,12 @@ class IMDBGraph():
         # Regular Expression to get year from movie title
         self.reForYear = re.compile("(\()(\d\d\d\d)([/IXV])*(\))")
 
-    def getDecade(year):
-        return (year % 10) * 10
+    def getDecade(self, year):
+        return int (year // 10) * 10
     
     def getValues(self, line, log):
         
-        failure = ("", "", "", True)
+        failure = "", "", "", True
         actor, movie = line.split("\t")
         if self.mainGraph.has_edge(actor, movie):
             log.write("DUPLICATE: " + line)
@@ -41,7 +41,7 @@ class IMDBGraph():
         if yearMatched:
             strYear = yearMatched.group(2)
             if strYear.isdigit():
-                return (actor, movie, int(strYear), False)
+                return actor, movie, int(strYear), False
             else:
                 log.write("YEAR FORMAT: " + line)
                 return failure
@@ -54,34 +54,37 @@ class IMDBGraph():
         f = open(self.path, "r")
         log = open("MovieGraphImportLogger.log", "w")
         lines = f.readlines()
+        i = 0
         for line in lines:
-            (actor, movie, year, failure) = self.getValues(line, log)
+            actor, movie, year, failure = self.getValues(line, log)
             if not failure:
                 self.addNodeToMainGraph(actor, movie, year)
                 self.addNodeToActorGraph(actor, movie)
-                self.addNodeToProdGraph(actor, movie, self.getDecade(year))
+                self.addNodeToProdGraph(actor, self.getDecade(year))
+            print (i, end="\r")
+            i = i + 1
         log.close
         f.close
 
     def addNodeToMainGraph(self, actor, movie, year):
         self.mainGraph.add_node(actor, type="actor")
-        self.mainGraph.add_node(movie, type="movie", year=int(year))
+        self.mainGraph.add_node(movie, type="movie", year=year)
         self.mainGraph.add_edge(actor, movie)
 
     def addNodeToActorGraph(self, newActor, movie):
-        for actor in self.mainGraph[movie].items():
-            self.actorGraph.add_edge(actor, newActor)
+        for actor in self.mainGraph[movie]:
+            if actor != newActor:
+                if self.actorGraph.has_edge(actor, newActor):
+                    self.actorGraph.edges[actor, newActor]["weight"] = self.actorGraph.edges[actor, newActor]["weight"] + 1
+                else:
+                    self.actorGraph.add_edge(actor, newActor, weight = 1)
 
     def addNodeToProdGraph(self, actor, untilDecade):
         for decade in range(self.firstDecade, untilDecade, 10):
             if self.prodGraph.has_edge(decade, actor):
-                self.prodGraph[decade, actor]["weight"] = self.prodGraph[decade, actor]["weight"] + 1
+                self.prodGraph.edges[decade, actor]["weight"] = self.prodGraph.edges[decade, actor]["weight"] + 1
             else:
-                self.prodGraph.add_edge(decade, actor, weight=1)
-
-    def addNodeToProdGraph(self, actor, movie, year):
-        pass
-
+                self.prodGraph.add_edge(decade, actor, weight = 1)
 
 # START HERE
 path = "imdb-actors-actresses-movies.tsv"

@@ -27,27 +27,39 @@ class IMDBGraph():
 
     def getDecade(year):
         return (year % 10) * 10
+    
+    def getValues(self, line, log):
+        
+        failure = ("", "", "", True)
+        actor, movie = line.split("\t")
+        if self.mainGraph.has_edge(actor, movie):
+            log.write("DUPLICATE: " + line)
+            return failure
+        
+        yearMatched = self.reForYear.search(movie)
+
+        if yearMatched:
+            strYear = yearMatched.group(2)
+            if strYear.isdigit():
+                return (actor, movie, int(strYear), False)
+            else:
+                log.write("YEAR FORMAT: " + line)
+                return failure
+        else:
+            log.write("YEAR NOT FOUND: " + line)
+            return failure
+
 
     def createFromFile(self):
         f = open(self.path, "r")
         log = open("MovieGraphImportLogger.log", "w")
         lines = f.readlines()
         for line in lines:
-            actor, movie = line.split("\t")
-            if self.mainGraph.has_edge(actor, movie):
-                log.write("DUPLICATE: " + actor +  ":" +  movie)
-            else:
-                y = self.reForYear.search(movie)
-                #discard lines without year (e.g. Aamundson)
-                if y:
-                    year = y.group(2)
-
-                    self.addNodeToMainGraph(actor, movie, year)
-                    self.addNodeToActorGraph(actor, movie)
-                    self.addNodeToProdGraph(actor, movie, self.getDecade(year))
-
-                else:
-                    log.write("NO YEAR: " + actor +  ":" +  movie)
+            (actor, movie, year, failure) = self.getValues(line, log)
+            if not failure:
+                self.addNodeToMainGraph(actor, movie, year)
+                self.addNodeToActorGraph(actor, movie)
+                self.addNodeToProdGraph(actor, movie, self.getDecade(year))
         log.close
         f.close
 
@@ -60,35 +72,21 @@ class IMDBGraph():
         for actor in self.mainGraph[movie].items():
             self.actorGraph.add_edge(actor, newActor)
 
-    def addNodeToProdGraph(self, actor, decade):
-        for d in range(self.firstDecade, decade, 10):
+    def addNodeToProdGraph(self, actor, untilDecade):
+        for decade in range(self.firstDecade, untilDecade, 10):
             if self.prodGraph.has_edge(decade, actor):
-                self.prodGraph[d, actor]["weight"] = self.prodGraph[d, actor]["weight"] + 1
+                self.prodGraph[decade, actor]["weight"] = self.prodGraph[decade, actor]["weight"] + 1
             else:
-                self.prodGraph.add_edge(d, actor, weight=1)
+                self.prodGraph.add_edge(decade, actor, weight=1)
 
+    def addNodeToProdGraph(self, actor, movie, year):
+        pass
 
-
-
-    
-    def mostActiveActorUntil(self, year):
-        maxUntilNow = 0
-        mostActiveActor = ""
-        for actor in self.actorSubGraph:
-            if self.graph.degree(actor) > maxUntilNow:
-                i = sum(1 for m in self.graph[actor] if nx.get_node_attributes(self.graph, 'year')[m] <= year)
-                if i > maxUntilNow:
-                    maxUntilNow = i
-                    mostActiveActor = actor
-        return mostActiveActor
 
 # START HERE
 path = "imdb-actors-actresses-movies.tsv"
 G = IMDBGraph(path)
-# You could split into two sections: first find problems, second fast create consistent graph
-# G.logProblems()
-# print ("Problems found")
-# Create graph after problems were found
+
 print(datetime.now().time())
 G.createFromFile()
 print(datetime.now().time())

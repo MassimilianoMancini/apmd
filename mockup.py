@@ -17,9 +17,9 @@ class IMDBGraph():
 
         # Most productive actor in last decades for question 1.C
         self.firstDecade = 1930
-        lastDecade = 2030
+        self.lastDecade = 2030
         self.prodGraph = nx.Graph()
-        for i in range(self.firstDecade, lastDecade, 10):
+        for i in range(self.firstDecade, self.lastDecade, 10):
             self.prodGraph.add_node(i, type="decade")
 
         # Regular Expression to get year from movie title
@@ -28,24 +28,8 @@ class IMDBGraph():
     def getDecade(self, year):
         if year < 1931:
             return 1930
-        elif year < 1941:
-            return 1940
-        elif year < 1951:
-            return 1950
-        elif year < 1961:
-            return 1960
-        elif year < 1971:
-            return 1970
-        elif year < 1981:
-            return 1980
-        elif year < 1991:
-            return 1990
-        elif year < 2001:
-            return 2000
-        elif year < 2011:
-            return 2010
-        elif year < 2021:
-            return 2020
+        else:
+            return ((year + 9) // 10) * 10
     
     def getValues(self, line, log):
         
@@ -97,8 +81,8 @@ class IMDBGraph():
                 else:
                     self.actorGraph.add_edge(actor, newActor, weight = 1)
 
-    def addNodeToProdGraph(self, actor, untilDecade):
-        for decade in range(self.firstDecade, untilDecade, 10):
+    def addNodeToProdGraph(self, actor, fromDecade):
+        for decade in range(fromDecade, self.lastDecade, 10):
             if self.prodGraph.has_edge(decade, actor):
                 weight = self.prodGraph.edges[decade, actor]["weight"]
                 self.prodGraph.edges[decade, actor]["weight"] = weight + 1
@@ -117,8 +101,8 @@ class IMDBGraph():
 
 
 # START HERE
-# path = "imdb-actors-actresses-movies.tsv"
-path = "sample.tsv"
+path = "imdb-actors-actresses-movies.tsv"
+# path = "sample.tsv"
 G = IMDBGraph(path)
 
 print(datetime.now().time())
@@ -127,10 +111,10 @@ print(datetime.now().time())
 print (G.mainGraph)
 for decade in range (1930, 2030, 10):
     for actor in G.prodGraph[decade]:
-        if G.prodGraph.edges[decade, actor]["weight"] > 20:
+        if G.prodGraph.edges[decade, actor]["weight"] > 10:
             print (decade, actor, G.prodGraph.edges[decade, actor]["weight"])
 
 
-actor, max = G.getMostProductiveActorUntil(1990)
+actor, max = G.getMostProductiveActorUntil(2020)
 print (actor, max)
 print(datetime.now().time())

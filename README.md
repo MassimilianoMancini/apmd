@@ -30,6 +30,8 @@ Il ciclo principale carica di dati dal file di testo nelle strutture dati prepos
     - crea un nuovo arco nel grafo produttività P
 
 ### Question 1
+Generare le sommatorie in fase di caricmento costa troppo tempo. Decido di suddividere i tempi in due: tengo basso il caricamento mettendo per ogni nodo solo la decade in corso e non le precedenti
+In fase di richiamo della funzione, dovrò ciclare su tutti i nodi decade dall'inizio fino a untilDecade. Per ogni attore mi tengo un dizionario con nome attore e 
 Accedo al nodo decade e restituisco il nome dell'attore (attributo del nodo).
 
 ### Question 2

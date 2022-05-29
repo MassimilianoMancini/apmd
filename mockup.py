@@ -121,11 +121,19 @@ class IMDBGraph():
                 mostProductiveActor = actor
         return mostProductiveActor, max
 
-
-
+    def generateSupgraphForYear(self, year):
+        tempList = []
+        for movie in self.mainGraph.nodes:
+            if self.mainGraph.nodes[movie]["type"] == "movie":
+                if self.mainGraph.nodes[movie]["year"] <= year:
+                    tempList.append(movie)
+                    tempList = list(set(tempList + [actor for actor in self.mainGraph[movie]]))
+        return self.mainGraph.subgraph(tempList) 
+        
 # START HERE
 path = "imdb-actors-actresses-movies.tsv"
 # path = "sample.tsv"
+# path = "test.tsv"
 G = IMDBGraph()
 
 print ("Fast start")
@@ -137,19 +145,11 @@ print ("Fast done")
 print (G.mainGraph)
 print (G.prodGraph)
 
-
-
-# print(datetime.now().time())
-# G.createFromFile(path)
-# print(datetime.now().time())
-# print (G.mainGraph)
-# for decade in range (1930, 2030, 10):
-#    for actor in G.prodGraph[decade]:
-#        if G.prodGraph.edges[decade, actor]["weight"] > 10:
-#            print (decade, actor, G.prodGraph.edges[decade, actor]["weight"])
-
 print(datetime.now().time())
 actor, max = G.getMostProductiveActorUntil(1970)
 print (actor, max)
 print(datetime.now().time())
+t = G.generateSupgraphForYear(1940)
+print(datetime.now().time())
+print (t)
 exit()

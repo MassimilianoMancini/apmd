@@ -15,6 +15,9 @@ class IMDBGraph():
         # Actor graph as requesto for question 4
         self.actorGraph = nx.Graph()
 
+        # Movie list
+        self.movieList = [[]]
+
         # Most productive actor in last decades for question 1.C
         self.firstDecade = 1930
         self.lastDecade = 2030
@@ -59,16 +62,18 @@ class IMDBGraph():
             
     def _createFromFileFast(self, path):
         f = open(path, "r")
-        lines = f.readlines()
-        for line in lines:
+        # lines = f.readlines()
+        for line in f:
             matchedLine = self.reActorMovieYear.match(line)
             if matchedLine:
                 actor = matchedLine.group(1)
                 movie = matchedLine.group(2)
                 year = int(matchedLine.group(3))
+                decade = self.getDecade(year)
                 self.addNodeToMainGraph(actor, movie, year)
-                self.addNodeToActorGraph(actor, movie)
-                self.addNodeToProdGraph(actor, self.getDecade(year))
+                # self.addNodeToActorGraph(actor, movie, decade)
+                self.addNodeToProdGraph(actor, decade)
+                self.addMovieToProdList(movie, decade)
         f.close
 
 
@@ -83,8 +88,8 @@ class IMDBGraph():
             actor, movie, year, failure = self.getValues(line, log)
             if not failure:
                 self.addNodeToMainGraph(actor, movie, year)
-                # self.addNodeToActorGraph(actor, movie)
-                # self.addNodeToProdGraph(actor, self.getDecade(year))
+                self.addNodeToActorGraph(actor, movie)
+                self.addNodeToProdGraph(actor, self.getDecade(year))
             print (message.format(i), end="\r")
             i = i + 1
         log.close
@@ -110,7 +115,11 @@ class IMDBGraph():
                 weight = self.prodGraph.edges[decade, actor]["weight"]
                 self.prodGraph.edges[decade, actor]["weight"] = weight + 1
             else:
+                self.prodGraph.add_node(actor, type="actor")
                 self.prodGraph.add_edge(decade, actor, weight = 1)
+
+    def addMovieToProdList(self, movie, decade):
+        self.movieList[decade].append(movie)
 
     def getMostProductiveActorUntil(self, decade):
         max = 0
@@ -123,7 +132,10 @@ class IMDBGraph():
 
     def generateSupgraphForYear(self, year):
         tempList = []
-        for movie in self.mainGraph.nodes:
+        i = 0
+        for movie in self.prodGraph[year]:
+            print ("Nodes read: {:,}".format(i), end="\r")
+            i = i + 1
             if self.mainGraph.nodes[movie]["type"] == "movie":
                 if self.mainGraph.nodes[movie]["year"] <= year:
                     tempList.append(movie)

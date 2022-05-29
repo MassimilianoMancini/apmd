@@ -5,82 +5,116 @@ from datetime import datetime
 
 class IMDBGraph():
     def __init__(self, path):
-        self.graph = nx.Graph()
+
+        # Import tsv file path
         self.path = path
-        # Regular Expression
-        # will work on movie part of string 
-        # first group an opening parenthesis
-        # second group the year (4 digits)
-        # third optional group slash with roman numbers
-        # four group a closing parenthesis
-        self.reForYear = re.compile("(\()(\d\d\d\d)([/IXV])*(\))")
-        self.actorSubGraph = {}
-        self.movieSubGraph = {}
+
+        # Main graph as requested for basic project
+        self.mainGraph = nx.Graph()
         
+        # Actor graph as requesto for question 4
+        self.actorGraph = nx.Graph()
 
+        # Most productive actor in last decades for question 1.C
+        self.firstDecade = 1930
+        self.lastDecade = 2030
+        self.prodGraph = nx.Graph()
+        for i in range(self.firstDecade, self.lastDecade, 10):
+            self.prodGraph.add_node(i, type="decade")
 
-    def logProblems(self):
-        log = open("MovieGraphImportLogger.log", "w")
-        G = nx.Graph()
+        # Regular Expression to get year from movie title
+        self.reForYear = re.compile("(\()(\d\d\d\d)([/IXV])*(\))")
 
-        f = open(self.path, "r")
-        lines = f.readlines()
-        for line in lines:
-            actor, movie = line.split("\t")
-            if G.has_edge(actor, movie):
-                log.write("DUPLICATE: " + actor +  ":" +  movie)
-            else:
-                G.add_edge(actor, movie)
-                # Check for yar problem only if edge does not exist
-                # This way number of lines of log file
-                # and nodes will be consistent
-                # |G| = lines of input file - errors
-                # 8.104.335 - 855 = 8.103.480
-                if not self.reForYear.search(movie):
-                    log.write("NO YEAR: " + actor +  ":" +  movie)
-        f.close
-        log.close
+    def getDecade(self, year):
+        if year < 1931:
+            return 1930
+        else:
+            return ((year + 9) // 10) * 10
+    
+    def getValues(self, line, log):
+        
+        failure = "", "", "", True
+        actor, movie = line.split("\t")
+
+        if self.mainGraph.has_edge(actor, movie):
+            log.write("DUPLICATE: " + line)
+            return failure
+        
+        yearMatched = self.reForYear.search(movie)
+
+        if not yearMatched:
+            log.write("YEAR NOT FOUND: " + line)
+            return failure
+     
+        strYear = yearMatched.group(2)
+        return actor, movie, int(strYear), False
+            
 
     def createFromFile(self):
         f = open(self.path, "r")
+        log = open("MovieGraphImportLogger.log", "w")
+        message = "Lines read: {:,}"
         lines = f.readlines()
+        i = 1
         for line in lines:
-            actor, movie = line.split("\t")
-            y = self.reForYear.search(movie)
-            #discard not matching string, e.g. lines without year see Aamundson
-            if y:
-                # get second group, 4 digits i.e. the year
-                year = y.group(2)
-                self.graph.add_node(actor, type="actor")
-                self.graph.add_node(movie, type="movie", year=int(year))
-                self.graph.add_edge(actor, movie)
-        self.actorSubGraph = {n for n, d in self.graph.nodes(data=True) if d['type'] == 'actor'}
-        self.movieSubGraph = {n for n, d in self.graph.nodes(data=True) if d['type'] == 'movie'}
+            actor, movie, year, failure = self.getValues(line, log)
+            if not failure:
+                self.addNodeToMainGraph(actor, movie, year)
+                # self.addNodeToActorGraph(actor, movie)
+                self.addNodeToProdGraph(actor, self.getDecade(year))
+            print (message.format(i), end="\r")
+            i = i + 1
+        log.close
         f.close
-    
-    def mostActiveActorUntil(self, year):
-        maxUntilNow = 0
-        mostActiveActor = ""
-        for actor in self.actorSubGraph:
-            if self.graph.degree(actor) > maxUntilNow:
-                i = sum(1 for m in self.graph[actor] if nx.get_node_attributes(self.graph, 'year')[m] <= year)
-                if i > maxUntilNow:
-                    maxUntilNow = i
-                    mostActiveActor = actor
-        return mostActiveActor
+        print (" ")
+
+    def addNodeToMainGraph(self, actor, movie, year):
+        self.mainGraph.add_node(actor, type="actor")
+        self.mainGraph.add_node(movie, type="movie", year=year)
+        self.mainGraph.add_edge(actor, movie)
+
+    def addNodeToActorGraph(self, newActor, movie):
+        for actor in self.mainGraph[movie]:
+            if actor != newActor:
+                if self.actorGraph.has_edge(actor, newActor):
+                    self.actorGraph.edges[actor, newActor]["weight"] = self.actorGraph.edges[actor, newActor]["weight"] + 1
+                else:
+                    self.actorGraph.add_edge(actor, newActor, weight = 1)
+
+    def addNodeToProdGraph(self, actor, fromDecade):
+        for decade in range(fromDecade, self.lastDecade, 10):
+            if self.prodGraph.has_edge(decade, actor):
+                weight = self.prodGraph.edges[decade, actor]["weight"]
+                self.prodGraph.edges[decade, actor]["weight"] = weight + 1
+            else:
+                self.prodGraph.add_edge(decade, actor, weight = 1)
+
+    def getMostProductiveActorUntil(self, decade):
+        max = 0
+        mostProductiveActor = None
+        for actor in self.prodGraph[decade]:
+            if self.prodGraph.edges[decade, actor]["weight"] > max:
+                max = self.prodGraph.edges[decade, actor]["weight"]
+                mostProductiveActor = actor
+        return mostProductiveActor, max
+
+
 
 # START HERE
 path = "imdb-actors-actresses-movies.tsv"
+# path = "sample.tsv"
 G = IMDBGraph(path)
-# You could split into two sections: first find problems, second fast create consistent graph
-# G.logProblems()
-# print ("Problems found")
-# Create graph after problems were found
+
 print(datetime.now().time())
 G.createFromFile()
 print(datetime.now().time())
-print (G.graph)
+print (G.mainGraph)
+for decade in range (1930, 2030, 10):
+    for actor in G.prodGraph[decade]:
+        if G.prodGraph.edges[decade, actor]["weight"] > 10:
+            print (decade, actor, G.prodGraph.edges[decade, actor]["weight"])
+
+
+actor, max = G.getMostProductiveActorUntil(2020)
+print (actor, max)
 print(datetime.now().time())
-a = G.mostActiveActorUntil(2010)
-print(datetime.now().time())
-print(a)

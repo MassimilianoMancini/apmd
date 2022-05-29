@@ -22,7 +22,7 @@ class IMDBGraph():
         for i in range(self.firstDecade, self.lastDecade, 10):
             self.prodGraph.add_node(i, type="decade")
 
-        # Regular Expression to get year from movie title
+        # Regular Expression in verbose and fast flavours
         self.reForYear = re.compile("(\()(\d\d\d\d)([/IXV])*(\))")
         self.reActorMovieYear = re.compile("(.+)\t(.+(?<=\()(\d\d\d\d)(?=[/IXV]*\)).*)")
 

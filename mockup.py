@@ -84,7 +84,7 @@ class IMDBGraph():
             if not failure:
                 self.addNodeToMainGraph(actor, movie, year)
                 # self.addNodeToActorGraph(actor, movie)
-                self.addNodeToProdGraph(actor, self.getDecade(year))
+                # self.addNodeToProdGraph(actor, self.getDecade(year))
             print (message.format(i), end="\r")
             i = i + 1
         log.close
@@ -143,11 +143,11 @@ print(datetime.now().time())
 print ("Fast done")
 
 print (G.mainGraph)
-print (G.prodGraph)
+# print (G.prodGraph)
 
-print(datetime.now().time())
-actor, max = G.getMostProductiveActorUntil(1970)
-print (actor, max)
+# print(datetime.now().time())
+# actor, max = G.getMostProductiveActorUntil(1970)
+# print (actor, max)
 print(datetime.now().time())
 t = G.generateSupgraphForYear(1940)
 print(datetime.now().time())

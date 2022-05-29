@@ -4,10 +4,10 @@ import networkx as nx
 from datetime import datetime
 
 class IMDBGraph():
-    def __init__(self, path):
+    def __init__(self):
 
-        # Import tsv file path
-        self.path = path
+        # Log File for error in verbose mode
+        self.logFile = "MovieGraphImportLogger.log"
 
         # Main graph as requested for basic project
         self.mainGraph = nx.Graph()
@@ -24,6 +24,7 @@ class IMDBGraph():
 
         # Regular Expression to get year from movie title
         self.reForYear = re.compile("(\()(\d\d\d\d)([/IXV])*(\))")
+        self.reActorMovieYear = re.compile("(.+)\t(.+(?<=\()(\d\d\d\d)(?=[/IXV]*\)).*)")
 
     def getDecade(self, year):
         if year < 1931:
@@ -48,11 +49,33 @@ class IMDBGraph():
      
         strYear = yearMatched.group(2)
         return actor, movie, int(strYear), False
-            
 
-    def createFromFile(self):
-        f = open(self.path, "r")
-        log = open("MovieGraphImportLogger.log", "w")
+    def createFromFile(self, path, verbose=False):
+        if verbose:
+            self._createFromFileVerbose(path)
+        else:
+            self._createFromFileFast(path)
+
+            
+    def _createFromFileFast(self, path):
+        f = open(path, "r")
+        lines = f.readlines()
+        for line in lines:
+            matchedLine = self.reActorMovieYear.match(line)
+            if matchedLine:
+                actor = matchedLine.group(1)
+                movie = matchedLine.group(2)
+                year = int(matchedLine.group(3))
+                self.addNodeToMainGraph(actor, movie, year)
+                self.addNodeToActorGraph(actor, movie)
+                self.addNodeToProdGraph(actor, self.getDecade(year))
+        f.close
+
+
+
+    def _createFromFileVerbose(self, path):
+        f = open(path, "r")
+        log = open(self.logFile, "w")
         message = "Lines read: {:,}"
         lines = f.readlines()
         i = 1
@@ -103,18 +126,30 @@ class IMDBGraph():
 # START HERE
 path = "imdb-actors-actresses-movies.tsv"
 # path = "sample.tsv"
-G = IMDBGraph(path)
+G = IMDBGraph()
 
+print ("Fast start")
 print(datetime.now().time())
-G.createFromFile()
+G.createFromFile(path)
 print(datetime.now().time())
+print ("Fast done")
+
 print (G.mainGraph)
-for decade in range (1930, 2030, 10):
-    for actor in G.prodGraph[decade]:
-        if G.prodGraph.edges[decade, actor]["weight"] > 10:
-            print (decade, actor, G.prodGraph.edges[decade, actor]["weight"])
+print (G.prodGraph)
 
 
-actor, max = G.getMostProductiveActorUntil(2020)
+
+# print(datetime.now().time())
+# G.createFromFile(path)
+# print(datetime.now().time())
+# print (G.mainGraph)
+# for decade in range (1930, 2030, 10):
+#    for actor in G.prodGraph[decade]:
+#        if G.prodGraph.edges[decade, actor]["weight"] > 10:
+#            print (decade, actor, G.prodGraph.edges[decade, actor]["weight"])
+
+print(datetime.now().time())
+actor, max = G.getMostProductiveActorUntil(1970)
 print (actor, max)
 print(datetime.now().time())
+exit()

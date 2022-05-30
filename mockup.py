@@ -142,9 +142,40 @@ class IMDBGraph():
         self.dfstime += 1
         self.mainGraph.nodes[node]['discovery'] = self.dfstime
         for nextNode in self.mainGraph[node]:
-            if self.mainGraph.nodes[nextNode]['color'] == 'white' and (self.mainGraph.nodes[nextNode]['type'] == 'actor' or (self.mainGraph.nodes[nextNode]['type'] == 'movie' and self.mainGraph.nodes[nextNode]['year'] <= year)):
-                self.mainGraph.nodes[nextNode]['pred'] = node
+            nn = self.mainGraph.nodes[nextNode]
+            if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
+                nn['pred'] = node
                 self.dfsvisit(year, nextNode)
+        self.mainGraph.nodes[node]['color'] = 'black'
+        self.dfstime += 1
+        self.mainGraph.nodes[node]['finish'] = self.dfstime
+        print(node, self.mainGraph.nodes[node])
+
+    def dsfiterative(self, year):
+        stack = []
+        if year == None:
+            year = self.lastDecade
+
+        for node in self.mainGraph:
+            self.mainGraph.nodes[node]['color'] = 'white'
+            self.mainGraph.nodes[node]['pred'] = -1
+
+
+        for movie in self.mainGraph:
+            stack.append(movie)
+            while (len(stack)):
+                poppedNode = stack[-1]
+                stack.pop()
+
+                if self.mainGraph.nodes[movie]['type'] == 'movie' and self.mainGraph.nodes[movie]['year'] <= year and self.mainGraph.nodes[movie]['color'] == 'white':
+                    self.mainGraph.nodes[node]['color'] = 'gray'
+                    self.dfstime += 1
+                    self.mainGraph.nodes[node]['discovery'] = self.dfstime
+                    for nextNode in self.mainGraph[node]:
+                        nn = self.mainGraph.nodes[nextNode]
+                        if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
+                            nn['pred'] = node
+                        stack.append(nextNode)
         self.mainGraph.nodes[node]['color'] = 'black'
         self.dfstime += 1
         self.mainGraph.nodes[node]['finish'] = self.dfstime
@@ -156,8 +187,8 @@ class IMDBGraph():
 
         
 # START HERE
-# path = 'imdb-actors-actresses-movies.tsv'
-path = 'sample.tsv'
+path = 'imdb-actors-actresses-movies.tsv'
+# path = 'sample.tsv'
 # path = 'test.tsv'
 G = IMDBGraph()
 
@@ -170,7 +201,7 @@ print ('Fast done')
 print (G.mainGraph)
 # print (G.prodGraph)
 
-G.dfs(1930)
+G.dfs()
 
 # print(datetime.now().time())
 # actor, max = G.getMostProductiveActorUntil(1970)

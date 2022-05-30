@@ -7,7 +7,7 @@ class IMDBGraph():
     def __init__(self):
 
         # Log File for error in verbose mode
-        self.logFile = "MovieGraphImportLogger.log"
+        self.logFile = 'MovieGraphImportLogger.log'
 
         # Main graph as requested for basic project
         self.mainGraph = nx.Graph()
@@ -15,19 +15,19 @@ class IMDBGraph():
         # Actor graph as requesto for question 4
         self.actorGraph = nx.Graph()
 
-        # Movie list
-        self.movieList = [[]]
-
         # Most productive actor in last decades for question 1.C
         self.firstDecade = 1930
         self.lastDecade = 2030
         self.prodGraph = nx.Graph()
         for i in range(self.firstDecade, self.lastDecade, 10):
-            self.prodGraph.add_node(i, type="decade")
+            self.prodGraph.add_node(i, type='decade')
 
         # Regular Expression in verbose and fast flavours
-        self.reForYear = re.compile("(\()(\d\d\d\d)([/IXV])*(\))")
-        self.reActorMovieYear = re.compile("(.+)\t(.+(?<=\()(\d\d\d\d)(?=[/IXV]*\)).*)")
+        self.reForYear = re.compile('(\()(\d\d\d\d)([/IXV])*(\))')
+        self.reActorMovieYear = re.compile('(.+)\t(.+(?<=\()(\d\d\d\d)(?=[/IXV]*\)).*)')
+
+        # Global time for DFS
+        self.dfstime = 0
 
     def getDecade(self, year):
         if year < 1931:
@@ -37,17 +37,17 @@ class IMDBGraph():
     
     def getValues(self, line, log):
         
-        failure = "", "", "", True
-        actor, movie = line.split("\t")
+        failure = '', '', '', True
+        actor, movie = line.split('\t')
 
         if self.mainGraph.has_edge(actor, movie):
-            log.write("DUPLICATE: " + line)
+            log.write('DUPLICATE: ' + line)
             return failure
         
         yearMatched = self.reForYear.search(movie)
 
         if not yearMatched:
-            log.write("YEAR NOT FOUND: " + line)
+            log.write('YEAR NOT FOUND: ' + line)
             return failure
      
         strYear = yearMatched.group(2)
@@ -61,7 +61,7 @@ class IMDBGraph():
 
             
     def _createFromFileFast(self, path):
-        f = open(path, "r")
+        f = open(path, 'r')
         # lines = f.readlines()
         for line in f:
             matchedLine = self.reActorMovieYear.match(line)
@@ -73,15 +73,12 @@ class IMDBGraph():
                 self.addNodeToMainGraph(actor, movie, year)
                 # self.addNodeToActorGraph(actor, movie, decade)
                 self.addNodeToProdGraph(actor, decade)
-                self.addMovieToProdList(movie, decade)
         f.close
 
-
-
     def _createFromFileVerbose(self, path):
-        f = open(path, "r")
-        log = open(self.logFile, "w")
-        message = "Lines read: {:,}"
+        f = open(path, 'r')
+        log = open(self.logFile, 'w')
+        message = 'Lines read: {:,}'
         lines = f.readlines()
         i = 1
         for line in lines:
@@ -90,78 +87,93 @@ class IMDBGraph():
                 self.addNodeToMainGraph(actor, movie, year)
                 self.addNodeToActorGraph(actor, movie)
                 self.addNodeToProdGraph(actor, self.getDecade(year))
-            print (message.format(i), end="\r")
+            print (message.format(i), end='\r')
             i = i + 1
         log.close
         f.close
-        print (" ")
+        print (' ')
 
     def addNodeToMainGraph(self, actor, movie, year):
-        self.mainGraph.add_node(actor, type="actor")
-        self.mainGraph.add_node(movie, type="movie", year=year)
+        self.mainGraph.add_node(actor, type='actor', color='white', discovery = 0, finish = 0, pred = -1)
+        self.mainGraph.add_node(movie, type='movie', year=year, color='white', discovery = 0, finish = 0, pred = -1)
         self.mainGraph.add_edge(actor, movie)
 
     def addNodeToActorGraph(self, newActor, movie):
         for actor in self.mainGraph[movie]:
             if actor != newActor:
                 if self.actorGraph.has_edge(actor, newActor):
-                    self.actorGraph.edges[actor, newActor]["weight"] = self.actorGraph.edges[actor, newActor]["weight"] + 1
+                    self.actorGraph.edges[actor, newActor]['weight'] = self.actorGraph.edges[actor, newActor]['weight'] + 1
                 else:
                     self.actorGraph.add_edge(actor, newActor, weight = 1)
 
     def addNodeToProdGraph(self, actor, fromDecade):
         for decade in range(fromDecade, self.lastDecade, 10):
             if self.prodGraph.has_edge(decade, actor):
-                weight = self.prodGraph.edges[decade, actor]["weight"]
-                self.prodGraph.edges[decade, actor]["weight"] = weight + 1
+                weight = self.prodGraph.edges[decade, actor]['weight']
+                self.prodGraph.edges[decade, actor]['weight'] = weight + 1
             else:
-                self.prodGraph.add_node(actor, type="actor")
+                self.prodGraph.add_node(actor, type='actor')
                 self.prodGraph.add_edge(decade, actor, weight = 1)
-
-    def addMovieToProdList(self, movie, decade):
-        self.movieList[decade].append(movie)
 
     def getMostProductiveActorUntil(self, decade):
         max = 0
         mostProductiveActor = None
         for actor in self.prodGraph[decade]:
-            if self.prodGraph.edges[decade, actor]["weight"] > max:
-                max = self.prodGraph.edges[decade, actor]["weight"]
+            if self.prodGraph.edges[decade, actor]['weight'] > max:
+                max = self.prodGraph.edges[decade, actor]['weight']
                 mostProductiveActor = actor
         return mostProductiveActor, max
 
-    def generateSupgraphForYear(self, year):
-        tempList = []
-        i = 0
-        for movie in self.prodGraph[year]:
-            print ("Nodes read: {:,}".format(i), end="\r")
-            i = i + 1
-            if self.mainGraph.nodes[movie]["type"] == "movie":
-                if self.mainGraph.nodes[movie]["year"] <= year:
-                    tempList.append(movie)
-                    tempList = list(set(tempList + [actor for actor in self.mainGraph[movie]]))
-        return self.mainGraph.subgraph(tempList) 
+    def dfs(self, year = None):
+        if year == None:
+            year = self.lastDecade
+
+        for node in self.mainGraph:
+            self.mainGraph.nodes[node]['color'] = 'white'
+            self.mainGraph.nodes[node]['pred'] = -1
+
+
+        for movie in self.mainGraph:
+            if self.mainGraph.nodes[movie]['type'] == 'movie' and self.mainGraph.nodes[movie]['year'] <= year and self.mainGraph.nodes[movie]['color'] == 'white':
+                self.dfsvisit(year, movie)
+
+    def dfsvisit(self, year, node):
+        self.mainGraph.nodes[node]['color'] = 'gray'
+        self.dfstime += 1
+        self.mainGraph.nodes[node]['discovery'] = self.dfstime
+        for nextNode in self.mainGraph[node]:
+            if self.mainGraph.nodes[nextNode]['color'] == 'white' and (self.mainGraph.nodes[nextNode]['type'] == 'actor' or (self.mainGraph.nodes[nextNode]['type'] == 'movie' and self.mainGraph.nodes[nextNode]['year'] <= year)):
+                self.mainGraph.nodes[nextNode]['pred'] = node
+                self.dfsvisit(year, nextNode)
+        self.mainGraph.nodes[node]['color'] = 'black'
+        self.dfstime += 1
+        self.mainGraph.nodes[node]['finish'] = self.dfstime
+        print(node, self.mainGraph.nodes[node])
+
+
+
+        
+
         
 # START HERE
-path = "imdb-actors-actresses-movies.tsv"
-# path = "sample.tsv"
-# path = "test.tsv"
+# path = 'imdb-actors-actresses-movies.tsv'
+path = 'sample.tsv'
+# path = 'test.tsv'
 G = IMDBGraph()
 
-print ("Fast start")
+print ('Fast start')
 print(datetime.now().time())
 G.createFromFile(path)
 print(datetime.now().time())
-print ("Fast done")
+print ('Fast done')
 
 print (G.mainGraph)
 # print (G.prodGraph)
 
+G.dfs(1930)
+
 # print(datetime.now().time())
 # actor, max = G.getMostProductiveActorUntil(1970)
 # print (actor, max)
-print(datetime.now().time())
-t = G.generateSupgraphForYear(1940)
-print(datetime.now().time())
-print (t)
+
 exit()

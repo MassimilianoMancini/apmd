@@ -151,7 +151,7 @@ class IMDBGraph():
         self.mainGraph.nodes[node]['finish'] = self.dfstime
         print(node, self.mainGraph.nodes[node])
 
-    def dsfiterative(self, year):
+    def dfsiterative(self, year = None):
         stack = []
         if year == None:
             year = self.lastDecade
@@ -160,26 +160,65 @@ class IMDBGraph():
             self.mainGraph.nodes[node]['color'] = 'white'
             self.mainGraph.nodes[node]['pred'] = -1
 
-
+        maxDimension = 0
         for movie in self.mainGraph:
-            stack.append(movie)
-            while (len(stack)):
-                poppedNode = stack[-1]
-                stack.pop()
-
-                if self.mainGraph.nodes[movie]['type'] == 'movie' and self.mainGraph.nodes[movie]['year'] <= year and self.mainGraph.nodes[movie]['color'] == 'white':
-                    self.mainGraph.nodes[node]['color'] = 'gray'
-                    self.dfstime += 1
-                    self.mainGraph.nodes[node]['discovery'] = self.dfstime
-                    for nextNode in self.mainGraph[node]:
+            dimension = 0
+            m = self.mainGraph.nodes[movie]
+            if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
+                m['color'] = 'gray'
+                self.dfstime += 1         
+                m['discovery'] = self.dfstime
+                dimension += 1
+                stack.append(movie)
+                while (len(stack)):
+                    poppedNode = stack[-1]
+                    stack.pop()
+                    for nextNode in self.mainGraph[poppedNode]:
                         nn = self.mainGraph.nodes[nextNode]
                         if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
-                            nn['pred'] = node
-                        stack.append(nextNode)
-        self.mainGraph.nodes[node]['color'] = 'black'
-        self.dfstime += 1
-        self.mainGraph.nodes[node]['finish'] = self.dfstime
-        print(node, self.mainGraph.nodes[node])
+                            nn['pred'] = poppedNode
+                            nn['color'] = 'gray'
+                            self.dfstime += 1
+                            nn['discovery'] = self.dfstime
+                            dimension += 1
+                            stack.append(nextNode)
+                    pn = self.mainGraph.nodes[poppedNode]
+                    pn['color'] = 'black'
+                    self.dfstime += 1
+                    pn['finish'] = self.dfstime
+                    # print(poppedNode, pn)
+            if dimension > maxDimension:
+                maxDimension = dimension
+                biggestCC = movie
+        return biggestCC
+
+    def getFilteredBiggestCC(self, year = None):
+        if year == None:
+            year = self.lastDecade
+
+        for node in self.mainGraph:
+            self.mainGraph.nodes[node]['color'] = 'white'
+            self.mainGraph.nodes[node]['pred'] = None 
+
+
+    def filteredBFS(self, start, year = None):
+        m = self.mainGraph.nodes[start]
+        queue = [start]
+        i = 0
+        while i < len(queue):
+            current = queue[i]
+            for nextNode in self.mainGraph[current]:
+                nn = self.mainGraph.nodes[nextNode]
+                if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
+                    nn['color'] = 'gray'
+                    nn['pred'] = current
+                    queue.append(nextNode)
+            i =+ 1
+            self.mainGraph.nodes[current]['color'] = 'black'
+        return queue
+
+
+            
 
 
 
@@ -196,12 +235,20 @@ print ('Fast start')
 print(datetime.now().time())
 G.createFromFile(path)
 print(datetime.now().time())
-print ('Fast done')
+print ('Fast finish')
 
 print (G.mainGraph)
 # print (G.prodGraph)
 
-G.dfs()
+print ('DFS start')
+print(datetime.now().time())
+
+movie = G.dfsiterative()
+
+print(datetime.now().time())
+print ('DFS finish')
+
+print (movie)
 
 # print(datetime.now().time())
 # actor, max = G.getMostProductiveActorUntil(1970)

@@ -255,12 +255,12 @@ print (G.mainGraph)
 print ('BFS start')
 print(datetime.now().time())
 
-biggestCC = G.getFilteredBiggestCC()
+biggestCC = G.getFilteredBiggestCC(1930)
 
 print(datetime.now().time())
 print ('BFS finish')
 
-print (biggestCC)
+print (len(biggestCC))
 
 # print(datetime.now().time())
 # actor, max = G.getMostProductiveActorUntil(1970)

@@ -94,8 +94,8 @@ class IMDBGraph():
         print (' ')
 
     def addNodeToMainGraph(self, actor, movie, year):
-        self.mainGraph.add_node(actor, type='actor', color='white', discovery = 0, finish = 0, pred = -1)
-        self.mainGraph.add_node(movie, type='movie', year=year, color='white', discovery = 0, finish = 0, pred = -1)
+        self.mainGraph.add_node(actor, type='actor', color='white', pred = None)
+        self.mainGraph.add_node(movie, type='movie', year=year, color='white', pred = None)
         self.mainGraph.add_edge(actor, movie)
 
     def addNodeToActorGraph(self, newActor, movie):
@@ -198,11 +198,23 @@ class IMDBGraph():
 
         for node in self.mainGraph:
             self.mainGraph.nodes[node]['color'] = 'white'
-            self.mainGraph.nodes[node]['pred'] = None 
+            self.mainGraph.nodes[node]['pred'] = None
 
+        maxDimension = 0
+        biggestCC = []
+        for movie in self.mainGraph:
+            dimension = 0
+            cc = []
+            m = self.mainGraph.nodes[movie]
+            if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
+                cc = self.filteredBFS(movie, year)
+                dimension = len(cc)
+                if dimension > maxDimension:
+                    maxDimension = dimension
+                    biggestCC = cc.copy()
+        return biggestCC
 
-    def filteredBFS(self, start, year = None):
-        m = self.mainGraph.nodes[start]
+    def filteredBFS(self, start, year):
         queue = [start]
         i = 0
         while i < len(queue):
@@ -213,7 +225,7 @@ class IMDBGraph():
                     nn['color'] = 'gray'
                     nn['pred'] = current
                     queue.append(nextNode)
-            i =+ 1
+            i = i + 1
             self.mainGraph.nodes[current]['color'] = 'black'
         return queue
 
@@ -240,15 +252,15 @@ print ('Fast finish')
 print (G.mainGraph)
 # print (G.prodGraph)
 
-print ('DFS start')
+print ('BFS start')
 print(datetime.now().time())
 
-movie = G.dfsiterative()
+biggestCC = G.getFilteredBiggestCC()
 
 print(datetime.now().time())
-print ('DFS finish')
+print ('BFS finish')
 
-print (movie)
+print (biggestCC)
 
 # print(datetime.now().time())
 # actor, max = G.getMostProductiveActorUntil(1970)

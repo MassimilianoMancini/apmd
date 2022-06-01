@@ -1,6 +1,7 @@
 import logging
 import re
 import networkx as nx
+import random
 from datetime import datetime
 
 class IMDBGraph():
@@ -28,6 +29,20 @@ class IMDBGraph():
 
         # Global time for DFS
         self.dfstime = 0
+
+    def generateSample(self, fraction = 50):
+        f = open("imdb-actors-actresses-movies.tsv", "r")
+        g = open("sample.tsv", "w")
+        i = 0
+        for line in f:
+            lucky = random.randint(0, fraction)
+            if (lucky == 13):
+                g.write(line)
+                i = i + 1
+
+        f.close
+        g.close
+        return i
 
     def getDecade(self, year):
         if year < 1931:
@@ -115,7 +130,7 @@ class IMDBGraph():
                 self.prodGraph.add_node(actor, type='actor')
                 self.prodGraph.add_edge(decade, actor, weight = 1)
 
-    def getMostProductiveActorUntil(self, decade):
+    def getMostProductiveActorUntil(self, decade = 2020):
         max = 0
         mostProductiveActor = None
         for actor in self.prodGraph[decade]:
@@ -123,31 +138,8 @@ class IMDBGraph():
                 max = self.prodGraph.edges[decade, actor]['weight']
                 mostProductiveActor = actor
         return mostProductiveActor, max
-
-    def getFilteredBiggestCC(self, year = None):
-        if year == None:
-            year = self.lastDecade
-
-        for node in self.mainGraph:
-            self.mainGraph.nodes[node]['color'] = 'white'
-            self.mainGraph.nodes[node]['pred'] = None
-
-        maxDimension = 0
-        biggestCC = []
-        for movie in self.mainGraph:
-            dimension = 0
-            cc = []
-            m = self.mainGraph.nodes[movie]
-            if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
-                cc = self.filteredCC(movie, year)
-                dimension = len(cc)
-                if dimension > maxDimension:
-                    maxDimension = dimension
-                    biggestCC = cc.copy()
-        return biggestCC
-
     
-    def getFilteredFastBiggestCC(self, year = None):
+    def getFilteredBiggestCC(self, year = None):
         if year == None:
             year = self.lastDecade
 
@@ -164,7 +156,7 @@ class IMDBGraph():
             cc = []
             m = self.mainGraph.nodes[movie]
             if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
-                cc = self.filteredCC(movie, year)
+                cc = self._filteredCC(movie, year)
                 dimension = len(cc)
                 remainNodes = remainNodes - dimension
                 if dimension > maxDimension:
@@ -174,7 +166,7 @@ class IMDBGraph():
                 break   
         return biggestCC
 
-    def filteredCC(self, start, year):
+    def _filteredCC(self, start, year):
         cc = [start]
         i = 0
         while i < len(cc):
@@ -189,44 +181,73 @@ class IMDBGraph():
             self.mainGraph.nodes[currentNode]['color'] = 'black'
         return cc
 
-        
-# START HERE
-path = 'imdb-actors-actresses-movies.tsv'
-# path = 'sample.tsv'
-# path = 'test.tsv'
-G = IMDBGraph()
+def main(): 
 
-print ('Fast start')
-print(datetime.now().time())
-G.createFromFile(path)
-print(datetime.now().time())
-print ('Fast finish')
+    G = IMDBGraph()    
 
-print (G.mainGraph)
-# print (G.prodGraph)
+    print ('-----------------------------------------')
+    print ('IMDB Graph project (Massimiliano Mancini)')
+    print ('-----------------------------------------')
+    print ('\n')
+    f = int (input('Select file to import or generate a new sample [1]Full, [2]Sample [3]Test, [4]New sample (and exit), [0]Exit: '))
 
-print ('BFS start')
-print(datetime.now().time())
+    if f == 0:
+        exit()
+    elif f == 1:
+        path = 'imdb-actors-actresses-movies.tsv'
+    elif f == 2:
+        path = 'sample.tsv'
+    elif f == 3:
+        path = 'test.tsv'
+    elif f == 4:
+        s = int(input('Sample 1 row every [50] (min 20): '))
+        rows = G.generateSample(s)
+        print (f'File sample.tsv generated with {rows} rows')
+        exit()
 
-biggestCC = G.getFilteredBiggestCC(1970)
+    f = int (input('[1]Fast import, [2]Verbose import, [0]Exit: '))
+    if f == 0:
+        exit()
+    elif f == 1:
+        verbose = False
+        way = 'fast mode'
+    elif f ==2:
+        verbose = True
+        way = 'verbose mode'
 
-print(datetime.now().time())
-print ('BFS finish')
+    
+    
 
-print (len(biggestCC))
+    print (f'Import data {way}: start')
+    print(datetime.now().time())
+    G.createFromFile(path, verbose)
+    print(datetime.now().time())
+    print (f'Import data {way}: done')
 
-print ('BFS Fast start')
-print(datetime.now().time())
+    print ('Main graph')
+    print (G.mainGraph)
 
-biggestCC = G.getFilteredFastBiggestCC(1970)
+    print ('Producion graph')
+    print (G.prodGraph)
 
-print(datetime.now().time())
-print ('BFS Fast finish')
+    y = int(input('Select decade (1930-2020) for most productive actor[2020]: '))
 
-print (len(biggestCC))
+    print (f'Find most productive actor until {y}: start')
+    print(datetime.now().time())
+    actor, max = G.getMostProductiveActorUntil(y)
+    print(datetime.now().time())
+    print (actor, max)
+    print (f'Find most productive actor until {y}: done')
 
-# print(datetime.now().time())
-# actor, max = G.getMostProductiveActorUntil(1970)
-# print (actor, max)
+    y = int(input('Select decade (1930-2020) for biggest connected component[2020]: '))
 
-exit()
+    print (f'Find biggest CC for movies until {y}: start')
+    print(datetime.now().time())
+    biggestCC = G.getFilteredBiggestCC(y)
+    print(datetime.now().time())
+    print (f'Find biggest CC for movies until {y}: done')
+    print (f'Biggest CC is {biggestCC[0]} with {len(biggestCC)} nodes')
+    exit()
+
+if __name__ == "__main__":
+    main()

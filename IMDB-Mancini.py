@@ -2,6 +2,7 @@ import logging
 import re
 import networkx as nx
 import random
+from numpy import log
 from datetime import datetime
 
 class IMDBGraph():
@@ -109,8 +110,8 @@ class IMDBGraph():
         print (' ')
 
     def addNodeToMainGraph(self, actor, movie, year):
-        self.mainGraph.add_node(actor, type='actor', color='white', pred = None)
-        self.mainGraph.add_node(movie, type='movie', year=year, color='white', pred = None)
+        self.mainGraph.add_node(actor, type='actor', color='white', pred = None, chat = None)
+        self.mainGraph.add_node(movie, type='movie', year=year, color='white', pred = None, chat = None)
         self.mainGraph.add_edge(actor, movie)
 
     def addNodeToActorGraph(self, newActor, movie):
@@ -181,6 +182,46 @@ class IMDBGraph():
             self.mainGraph.nodes[currentNode]['color'] = 'black'
         return cc
 
+    def cHat(self, year):
+        topTen = [[0, None]]*10
+        eps = 0.01
+        cc = self.getFilteredBiggestCC(year)
+        subGraph = self.mainGraph.subgraph(cc)
+        n = subGraph.number_of_nodes()
+        k = log(n)/eps
+        sumOfdistances = 0
+        random_nodes = random.sample(list(subGraph.nodes()), k)
+        for node in subGraph:
+            sumOfdistances = self.calcSoD(subGraph, node, random_nodes)
+            cHat = 1/(n*sumOfdistances/k*(n-1))
+            subGraph.nodes[node]['chat'] = cHat
+            if cHat > topTen[9][0]:
+                topTen[9] = [cHat, node]
+                topTen.sort(reverse=True)
+
+            
+    def calcSoD(self, graph, node, random_nodes):
+        rn = set(random_nodes)
+
+        totalDistance = 0
+
+        for node in self.mainGraph:
+            graph.nodes[node]['color'] = 'white'
+            graph.nodes[node]['pred'] = None
+
+        queue = [node]
+        while len(rn):
+            current = queue.pop()
+            for nbr in graph[current]:
+                nn = graph.nodes[nbr]
+                if nn['color'] == 'white':
+                    nn['color'] == 'gray'
+                if nbr in rn:
+                    totalDistance = totalDistance + distance
+
+
+
+
 def main(): 
 
     G = IMDBGraph()    
@@ -232,7 +273,7 @@ def main():
 
     print ('\n')
 
-    y = int(input('Select decade (1930-2020) for most productive actor[2020]: '))
+    y = int(input('Q1. Select decade (1930-2020) for most productive actor[2020]: '))
 
     print (f'Find most productive actor until {y}: start')
     print(datetime.now().time())

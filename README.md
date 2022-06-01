@@ -35,7 +35,13 @@ In fase di richiamo della funzione, dovrò ciclare su tutti i nodi decade dall'i
 Accedo al nodo decade e restituisco il nome dell'attore (attributo del nodo).
 
 ### Question 2
-per la domanda 2, bisogna prima trovare la più grande componente connessa. Per la centralità fare k=log(n) BFS
+#### Trovare i film entro l'anno x
+A partire dal grafo principale scorro i nodi dei film, se il film rientra nel periodo, lo aggiungo a un nuovo grafo Temp con tutti i suoi nodi
+#### Trovare la più grande componente connessa
+Eseguire l'algoritmo don DFS e tempi di inizio e fine sul sottografo fatto precedentemente. I nodi che ne fanno parte costituiscono un nuovo grafo temporaneo
+#### Approssimare la centralità di tutti i nodi
+Su questo ultimo grafo scorrere tutti i nodi, per ognuno individuare k altri nodi a caso e calcolare c-hat. In un contatore tenersi i 10 attori con c-hat maggiore
+
 
 ### Question 3
 ```

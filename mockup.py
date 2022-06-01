@@ -124,74 +124,6 @@ class IMDBGraph():
                 mostProductiveActor = actor
         return mostProductiveActor, max
 
-    def dfs(self, year = None):
-        if year == None:
-            year = self.lastDecade
-
-        for node in self.mainGraph:
-            self.mainGraph.nodes[node]['color'] = 'white'
-            self.mainGraph.nodes[node]['pred'] = -1
-
-
-        for movie in self.mainGraph:
-            if self.mainGraph.nodes[movie]['type'] == 'movie' and self.mainGraph.nodes[movie]['year'] <= year and self.mainGraph.nodes[movie]['color'] == 'white':
-                self.dfsvisit(year, movie)
-
-    def dfsvisit(self, year, node):
-        self.mainGraph.nodes[node]['color'] = 'gray'
-        self.dfstime += 1
-        self.mainGraph.nodes[node]['discovery'] = self.dfstime
-        for nextNode in self.mainGraph[node]:
-            nn = self.mainGraph.nodes[nextNode]
-            if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
-                nn['pred'] = node
-                self.dfsvisit(year, nextNode)
-        self.mainGraph.nodes[node]['color'] = 'black'
-        self.dfstime += 1
-        self.mainGraph.nodes[node]['finish'] = self.dfstime
-        print(node, self.mainGraph.nodes[node])
-
-    def dfsiterative(self, year = None):
-        stack = []
-        if year == None:
-            year = self.lastDecade
-
-        for node in self.mainGraph:
-            self.mainGraph.nodes[node]['color'] = 'white'
-            self.mainGraph.nodes[node]['pred'] = -1
-
-        maxDimension = 0
-        for movie in self.mainGraph:
-            dimension = 0
-            m = self.mainGraph.nodes[movie]
-            if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
-                m['color'] = 'gray'
-                self.dfstime += 1         
-                m['discovery'] = self.dfstime
-                dimension += 1
-                stack.append(movie)
-                while (len(stack)):
-                    poppedNode = stack[-1]
-                    stack.pop()
-                    for nextNode in self.mainGraph[poppedNode]:
-                        nn = self.mainGraph.nodes[nextNode]
-                        if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
-                            nn['pred'] = poppedNode
-                            nn['color'] = 'gray'
-                            self.dfstime += 1
-                            nn['discovery'] = self.dfstime
-                            dimension += 1
-                            stack.append(nextNode)
-                    pn = self.mainGraph.nodes[poppedNode]
-                    pn['color'] = 'black'
-                    self.dfstime += 1
-                    pn['finish'] = self.dfstime
-                    # print(poppedNode, pn)
-            if dimension > maxDimension:
-                maxDimension = dimension
-                biggestCC = movie
-        return biggestCC
-
     def getFilteredBiggestCC(self, year = None):
         if year == None:
             year = self.lastDecade
@@ -207,34 +139,55 @@ class IMDBGraph():
             cc = []
             m = self.mainGraph.nodes[movie]
             if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
-                cc = self.filteredBFS(movie, year)
+                cc = self.filteredCC(movie, year)
                 dimension = len(cc)
                 if dimension > maxDimension:
                     maxDimension = dimension
                     biggestCC = cc.copy()
         return biggestCC
 
-    def filteredBFS(self, start, year):
-        queue = [start]
+    
+    def getFilteredFastBiggestCC(self, year = None):
+        if year == None:
+            year = self.lastDecade
+
+        for node in self.mainGraph:
+            self.mainGraph.nodes[node]['color'] = 'white'
+            self.mainGraph.nodes[node]['pred'] = None
+
+        maxDimension = 0
+        biggestCC = []
+        remainNodes = self.mainGraph.number_of_nodes()
+
+        for movie in self.mainGraph:
+            dimension = 0
+            cc = []
+            m = self.mainGraph.nodes[movie]
+            if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
+                cc = self.filteredCC(movie, year)
+                dimension = len(cc)
+                remainNodes = remainNodes - dimension
+                if dimension > maxDimension:
+                    maxDimension = dimension
+                    biggestCC = cc.copy()
+            if maxDimension > remainNodes:
+                break   
+        return biggestCC
+
+    def filteredCC(self, start, year):
+        cc = [start]
         i = 0
-        while i < len(queue):
-            current = queue[i]
-            for nextNode in self.mainGraph[current]:
+        while i < len(cc):
+            currentNode = cc[i]
+            for nextNode in self.mainGraph[currentNode]:
                 nn = self.mainGraph.nodes[nextNode]
                 if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
                     nn['color'] = 'gray'
-                    nn['pred'] = current
-                    queue.append(nextNode)
+                    nn['pred'] = currentNode
+                    cc.append(nextNode)
             i = i + 1
-            self.mainGraph.nodes[current]['color'] = 'black'
-        return queue
-
-
-            
-
-
-
-        
+            self.mainGraph.nodes[currentNode]['color'] = 'black'
+        return cc
 
         
 # START HERE
@@ -255,10 +208,20 @@ print (G.mainGraph)
 print ('BFS start')
 print(datetime.now().time())
 
-biggestCC = G.getFilteredBiggestCC(1930)
+biggestCC = G.getFilteredBiggestCC(1970)
 
 print(datetime.now().time())
 print ('BFS finish')
+
+print (len(biggestCC))
+
+print ('BFS Fast start')
+print(datetime.now().time())
+
+biggestCC = G.getFilteredFastBiggestCC(1970)
+
+print(datetime.now().time())
+print ('BFS Fast finish')
 
 print (len(biggestCC))
 

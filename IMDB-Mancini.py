@@ -230,6 +230,8 @@ def main():
     print ('Producion graph')
     print (G.prodGraph)
 
+    print ('\n')
+
     y = int(input('Select decade (1930-2020) for most productive actor[2020]: '))
 
     print (f'Find most productive actor until {y}: start')
@@ -238,6 +240,8 @@ def main():
     print(datetime.now().time())
     print (actor, max)
     print (f'Find most productive actor until {y}: done')
+
+    print ('\n')
 
     y = int(input('Select decade (1930-2020) for biggest connected component[2020]: '))
 

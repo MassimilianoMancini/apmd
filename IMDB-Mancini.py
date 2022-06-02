@@ -31,6 +31,8 @@ class IMDBGraph():
         # Global time for DFS
         self.dfstime = 0
 
+        self.topTenCentralActors = [[0, '']]*10
+
     def generateSample(self, fraction = 50):
         f = open("imdb-actors-actresses-movies.tsv", "r")
         g = open("sample.tsv", "w")
@@ -74,8 +76,7 @@ class IMDBGraph():
             self._createFromFileVerbose(path)
         else:
             self._createFromFileFast(path)
-
-            
+     
     def _createFromFileFast(self, path):
         f = open(path, 'r')
         # lines = f.readlines()
@@ -110,8 +111,8 @@ class IMDBGraph():
         print (' ')
 
     def addNodeToMainGraph(self, actor, movie, year):
-        self.mainGraph.add_node(actor, type='actor', color='white', pred = None, chat = None)
-        self.mainGraph.add_node(movie, type='movie', year=year, color='white', pred = None, chat = None)
+        self.mainGraph.add_node(actor, type='actor', color='white', dist = 0, totdist = 0, chat = None)
+        self.mainGraph.add_node(movie, type='movie', year=year, color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_edge(actor, movie)
 
     def addNodeToActorGraph(self, newActor, movie):
@@ -140,13 +141,12 @@ class IMDBGraph():
                 mostProductiveActor = actor
         return mostProductiveActor, max
     
-    def getFilteredBiggestCC(self, year = None):
+    def _getFilteredBiggestCC(self, year = None):
         if year == None:
             year = self.lastDecade
 
         for node in self.mainGraph:
             self.mainGraph.nodes[node]['color'] = 'white'
-            self.mainGraph.nodes[node]['pred'] = None
 
         maxDimension = 0
         biggestCC = []
@@ -176,60 +176,64 @@ class IMDBGraph():
                 nn = self.mainGraph.nodes[nextNode]
                 if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
                     nn['color'] = 'gray'
-                    nn['pred'] = currentNode
                     cc.append(nextNode)
             i = i + 1
             self.mainGraph.nodes[currentNode]['color'] = 'black'
         return cc
 
-    def cHat(self, year):
-        topTen = [[0, None]]*10
-        eps = 0.01
-        cc = self.getFilteredBiggestCC(year)
+    def cHat(self, year, eps):
+        cc = self._getFilteredBiggestCC(year)
         subGraph = self.mainGraph.subgraph(cc)
         n = subGraph.number_of_nodes()
-        k = log(n)/eps
-        sumOfdistances = 0
-        random_nodes = random.sample(list(subGraph.nodes()), k)
+        k = min(int(log(n)/eps) + 1, n)
+        print (f'Need to do {k} BFSs')
+        random_nodes = set(random.sample(list(subGraph.nodes()), k))
+        self.calcSoDForNode(subGraph, random_nodes)
         for node in subGraph:
-            sumOfdistances = self.calcSoD(subGraph, node, random_nodes)
-            cHat = 1/(n*sumOfdistances/k*(n-1))
+            cHat = (k*(n-1))/(n*subGraph.nodes[node]['totdist'])
             subGraph.nodes[node]['chat'] = cHat
-            if cHat > topTen[9][0]:
-                topTen[9] = [cHat, node]
-                topTen.sort(reverse=True)
-
+            if subGraph.nodes[node]['type'] == 'actor':
+                self._updateTopTenCentralActors(cHat, node)
             
-    def calcSoD(self, graph, node, random_nodes):
-        rn = set(random_nodes)
+    
+    def _updateTopTenCentralActors(self, cHat, node):
+        if cHat > self.topTenCentralActors[-1][0]:
+                self.topTenCentralActors[-1] = [cHat, node]
+                self.topTenCentralActors.sort(reverse=True)
+            
+    def calcSoDForNode(self, graph, random_nodes):
+        for node in graph:
+            graph.nodes[node]['totdist'] = 0
+        i = 0
+        for v in random_nodes:
+            for node in graph:
+                graph.nodes[node]['color'] = 'white'
+                graph.nodes[node]['dist'] = 0
 
-        totalDistance = 0
-
-        for node in self.mainGraph:
-            graph.nodes[node]['color'] = 'white'
-            graph.nodes[node]['pred'] = None
-
-        queue = [node]
-        while len(rn):
-            current = queue.pop()
-            for nbr in graph[current]:
-                nn = graph.nodes[nbr]
-                if nn['color'] == 'white':
-                    nn['color'] == 'gray'
-                if nbr in rn:
-                    totalDistance = totalDistance + distance
-
-
-
+            queue = [v]
+            
+            while len(queue):
+                current = queue.pop()
+                for nbr in graph[current]:
+                    nn = graph.nodes[nbr]
+                    if nn['color'] == 'white':
+                        nn['color'] = 'gray'
+                        nn['dist'] = graph.nodes[current]['dist'] + 1
+                        nn['totdist'] += nn['dist']
+                        queue.append(nbr)
+                graph.nodes[current]['color'] = 'black'
+            i = i + 1
+            print (f'BFS n. {i} done')
+            print(datetime.now().time())
+        return
 
 def main(): 
 
     G = IMDBGraph()    
-
+    print ('\n')
     print ('-----------------------------------------')
     print ('IMDB Graph project (Massimiliano Mancini)')
     print ('-----------------------------------------')
-    print ('\n')
     f = int (input('Select file to import or generate a new sample [1]Full, [2]Sample [3]Test, [4]New sample (and exit), [0]Exit: '))
 
     if f == 0:
@@ -241,7 +245,7 @@ def main():
     elif f == 3:
         path = 'test.tsv'
     elif f == 4:
-        s = int(input('Sample 1 row every [50] (min 20): '))
+        s = int(input('Sample 1 row every [50] (min 20): ') or "50")
         rows = G.generateSample(s)
         print (f'File sample.tsv generated with {rows} rows')
         exit()
@@ -255,9 +259,6 @@ def main():
     elif f ==2:
         verbose = True
         way = 'verbose mode'
-
-    
-    
 
     print (f'Import data {way}: start')
     print(datetime.now().time())
@@ -273,25 +274,30 @@ def main():
 
     print ('\n')
 
-    y = int(input('Q1. Select decade (1930-2020) for most productive actor[2020]: '))
+    y = int(input('Q1.C: Select decade (1930-2020) for most productive actor[2020]: ') or "2020")
 
-    print (f'Find most productive actor until {y}: start')
+    print (f'Find the most productive actor until {y}: start')
     print(datetime.now().time())
     actor, max = G.getMostProductiveActorUntil(y)
     print(datetime.now().time())
-    print (actor, max)
-    print (f'Find most productive actor until {y}: done')
+    print (f'Find the most productive actor until {y}: done')
+    print (f'The most productive actor until {y} is {actor} with {max} movies')
 
     print ('\n')
 
-    y = int(input('Select decade (1930-2020) for biggest connected component[2020]: '))
+    y = int(input('Q2.3: Select decade (1930-2020) for biggest connected component[2020]: ') or "2020")
+    eps = float(input('Q2.3: Set the epsilon[0.1]: ') or "0.1")
 
-    print (f'Find biggest CC for movies until {y}: start')
-    print(datetime.now().time())
-    biggestCC = G.getFilteredBiggestCC(y)
-    print(datetime.now().time())
-    print (f'Find biggest CC for movies until {y}: done')
-    print (f'Biggest CC is {biggestCC[0]} with {len(biggestCC)} nodes')
+    print ('\n')
+    print (f'Calculate c-hat for all nodes in the biggest CC, year {y}')
+    print (datetime.now().time())
+    biggestCC = G.cHat(y, eps)
+    print (datetime.now().time())
+    print ('\n')
+    print ('Most central actors are:')
+    for chat, actor in G.topTenCentralActors:
+        print (f'{actor:>20} \t\t {chat:.5f}')
+
     exit()
 
 if __name__ == "__main__":

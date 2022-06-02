@@ -227,6 +227,24 @@ class IMDBGraph():
             print(datetime.now().time())
         return
 
+    def mostSharedMovies(self):
+        maxShared = 0
+        for movie1 in self.mainGraph:
+            if self.mainGraph.nodes[movie1]['type'] == 'movie':
+                for actor in self.mainGraph[movie1]:
+                    if self.mainGraph.degree[actor] > maxShared:
+                        for movie2 in self.mainGraph[actor]:
+                            if self.mainGraph.degree[movie2] > maxShared and movie2 != movie1:
+                                nOfSharedActors = len(set(self.mainGraph[movie1]).intersection(set(self.mainGraph[movie2])))
+                                if nOfSharedActors > maxShared:
+                                    maxShared = nOfSharedActors
+                                    m1 = movie1
+                                    m2 = movie2
+        return m1, m2, maxShared
+
+
+
+
 def main(): 
 
     G = IMDBGraph()    
@@ -273,6 +291,10 @@ def main():
     print (G.prodGraph)
 
     print ('\n')
+    print(datetime.now().time())
+    print (G.mostSharedMovies())
+    print(datetime.now().time())
+    exit()
 
     y = int(input('Q1.C: Select decade (1930-2020) for most productive actor[2020]: ') or "2020")
 
@@ -297,6 +319,8 @@ def main():
     print ('Most central actors are:')
     for chat, actor in G.topTenCentralActors:
         print (f'{actor:>20} \t\t {chat:.5f}')
+
+    print (G.mostSharedMovies())
 
     exit()
 

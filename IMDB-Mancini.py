@@ -117,14 +117,6 @@ class IMDBGraph():
         self.mainGraph.add_edge(actor, movie)
         self.movies.add(movie)
 
-    def addNodeToActorGraph(self, newActor, movie):
-        for actor in self.mainGraph[movie]:
-            if actor != newActor:
-                if self.actorGraph.has_edge(actor, newActor):
-                    self.actorGraph.edges[actor, newActor]['weight'] = self.actorGraph.edges[actor, newActor]['weight'] + 1
-                else:
-                    self.actorGraph.add_edge(actor, newActor, weight = 1)
-
     def addNodeToProdGraph(self, actor, fromDecade):
         for decade in range(fromDecade, self.lastDecade, 10):
             if self.prodGraph.has_edge(decade, actor):
@@ -270,15 +262,22 @@ class IMDBGraph():
             self.cli.message(f'Number of actors done {i:,}', '\r')
         return topCouple
 
-    def topSharedActors2(self):
-        topCouple = [0, None, None]
+    def createActorGraph(self):      
         i = 0
         for movie in self.movies:
             if len(self.mainGraph[movie]) > 1:
-                self.actorGraph.add_weighted_edges_from(combinations(self.mainGraph[movie], 2))
+                self.actorGraph.add_weighted_edges_from([(e[0], e[1], 1) for e in combinations(self.mainGraph[movie], 2)])
             i = i + 1
             self.cli.message(f'Number of movies done {i:,}', '\r')
+
+    def topCouple(self):
+        topCouple = [0, None, None]
+        for u, v, w in self.actorGraph.edges.data('weight'):
+            if w > topCouple[0]:
+                topCouple = [w, v, u]
         return topCouple
+
+
 
 
 class Cli():
@@ -357,9 +356,10 @@ class Cli():
 
     def createActorGraph(self):
         self.notify(f'Q4. Create actor graph start')
-        tsa = self.G.topSharedActors2()
         print ('\nActor graph')
+        self.G.createActorGraph()
         print (self.G.actorGraph)
+        tsa = self.G.topCouple()
         print (f'Most shared actors are {tsa[1]} and {tsa[2]} with {tsa[0]} movies')
         self.notify(f'Q4. Create actor graph start')
 

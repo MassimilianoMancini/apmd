@@ -24,7 +24,7 @@ class IMDBGraph():
         for i in range(self.firstDecade, self.lastDecade, 10):
             self.prodGraph.add_node(i, type='decade')
 
-        # Regular Expression in verbose and fast flavours
+        # Regular Expression in fast and verbose flavours
         self.reForYear = re.compile('(\()(\d\d\d\d)([/IXV])*(\))')
         self.reActorMovieYear = re.compile('(.+)\t(.+(?<=\()(\d\d\d\d)(?=[/IXV]*\)).*)')
 
@@ -35,6 +35,9 @@ class IMDBGraph():
 
         self.movies = set()
 
+    def setCli(self, cli):
+        self.cli = cli
+    
     def generateSample(self, fraction = 50):
         f = open("imdb-actors-actresses-movies.tsv", "r")
         g = open("sample.tsv", "w")
@@ -81,7 +84,6 @@ class IMDBGraph():
      
     def _createFromFileFast(self, path):
         f = open(path, 'r')
-        # lines = f.readlines()
         for line in f:
             matchedLine = self.reActorMovieYear.match(line)
             if matchedLine:
@@ -90,24 +92,21 @@ class IMDBGraph():
                 year = int(matchedLine.group(3))
                 decade = self.getDecade(year)
                 self.addNodeToMainGraph(actor, movie, year)
-                # self.addNodeToActorGraph(actor, movie, decade)
                 self.addNodeToProdGraph(actor, decade)
-                self.movies.add(movie)
+                
         f.close
 
     def _createFromFileVerbose(self, path):
         f = open(path, 'r')
         log = open(self.logFile, 'w')
         message = 'Lines read: {:,}'
-        lines = f.readlines()
         i = 1
-        for line in lines:
+        for line in f:
             actor, movie, year, failure = self.getValues(line, log)
             if not failure:
                 self.addNodeToMainGraph(actor, movie, year)
-                self.addNodeToActorGraph(actor, movie)
                 self.addNodeToProdGraph(actor, self.getDecade(year))
-            Gui.notify(message.format(i), end='\r')
+            self.cli.message(message.format(i), '\r')
             i = i + 1
         log.close
         f.close
@@ -116,6 +115,7 @@ class IMDBGraph():
         self.mainGraph.add_node(actor, type='actor', color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_node(movie, type='movie', year=year, color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_edge(actor, movie)
+        self.movies.add(movie)
 
     def addNodeToActorGraph(self, newActor, movie):
         for actor in self.mainGraph[movie]:
@@ -166,7 +166,9 @@ class IMDBGraph():
                     maxDimension = dimension
                     biggestCC = cc.copy()
             if maxDimension > remainNodes:
-                break   
+                break
+
+        self.cli.notify(f'The biggest CC is {biggestCC[0]} with {len(biggestCC)} nodes')
         return biggestCC
 
     def _filteredCC(self, start, year):
@@ -188,7 +190,7 @@ class IMDBGraph():
         subGraph = self.mainGraph.subgraph(cc)
         n = subGraph.number_of_nodes()
         k = min(int(log(n)/eps) + 1, n)
-        Gui.notify(f'Need to do {k} BFSs')
+        self.cli.message(f'Need to do {k} BFSs')
         random_nodes = set(random.sample(list(subGraph.nodes()), k))
         self.calcSoDForNode(subGraph, random_nodes)
         for node in subGraph:
@@ -225,7 +227,7 @@ class IMDBGraph():
                         queue.append(nbr)
                 graph.nodes[current]['color'] = 'black'
             i = i + 1
-            Gui.notify(f'BFS n. {i} done [{datetime.now().time()}]')
+            self.cli.notify(f'BFS n. {i} done')
         return
 
     def mostSharedMovies(self):
@@ -245,8 +247,7 @@ class IMDBGraph():
 
 
 
-class Gui():
-
+class Cli():
     def __init__(self, G):
         self.G = G
 
@@ -255,7 +256,7 @@ class Gui():
         print ('-----------------------------------------')
         print ('IMDB Graph project (Massimiliano Mancini)')
         print ('-----------------------------------------')
-        f = int (input('Select file to import or generate a new sample \n[1] Full\n[2] Sample\n[3] Test\n[4] New sample (and exit)\n[0] Exit\n-> '))
+        f = int (input('Select file to import or generate a new sample \n[1] Full\n[2] Sample\n[3] Test\n[4] Create new sample and exit\n[0] Exit\n-> '))
 
         if f == 0:
             exit()
@@ -281,55 +282,58 @@ class Gui():
             verbose = True
             way = 'verbose mode'
 
-        print (f'Import data {way}: start [{datetime.now().time()}]')
+        self.notify(f'Import data {way} start (est. 4min)')
         self.G.createFromFile(path, verbose)
-        print (f'Import data {way}: done [{datetime.now().time()}]')
-        
         print ('Main graph')
         print (self.G.mainGraph)
         print (f'There are {len(self.G.movies)} movies and {self.G.mainGraph.number_of_nodes() - len(self.G.movies)} actors')
-
         print ('Producion graph')
         print (self.G.prodGraph)
+        self.notify(f'Import data {way} done')
 
     def mostProductiveActor(self):
         y = int(input('Q1.C: Select decade (1930-2020) for most productive actor\n[2020]->  ') or "2020")
 
-        print (f'Find the most productive actor until {y}: start [{datetime.now().time()}]')
+        self.notify(f'Find the most productive actor until {y} start')
         actor, max = self.G.getMostProductiveActorUntil(y)
         print (f'The most productive actor until {y} is {actor} with {max} movies')
-        print (f'Find the most productive actor until {y}: done [{datetime.now().time()}]')
+        self.notify(f'Find the most productive actor until {y} done')
 
     def cHat(self):
         y = int(input('Q2.3: Select decade (1930-2020) for biggest connected component\n[2020]-> ') or "2020")
         eps = float(input('Q2.3: Set the epsilon[0.1]\n-> ') or "0.1")
-        print (f'Calculate c-hat for all nodes in the biggest CC until year {y}: start [{datetime.now().time()}]')
+        self.notify(f'Calculate c-hat for all nodes in the biggest CC until year {y} start')
         biggestCC = self.G.cHat(y, eps)
         print ('Most central actors are:')
         for chat, actor in self.G.topTenCentralActors:
-            print (f'{actor:>20} \t\t {chat:.5f}')
-        print (f'Calculate c-hat for all nodes in the biggest CC until year {y}: done [{datetime.now().time()}]')
+            print (f'{actor:30s} \t\t {chat:.5f}')
+        self.notify(f'Calculate c-hat for all nodes in the biggest CC until year {y} done')
 
     def sharingMovies(self):
-        print (f'Q3.III Movies that share majority of actors: start [{datetime.now().time()}]')
+        self.notify(f'Q3.III Movies that share majority of actors start (est. 4min)')
         m1, m2, n = self.G.mostSharedMovies()
         print (f'The movies that share the majority of actors are {m1} and {m2} with {n} actors in common')
-        print (f'Q3.III Movies that share majority of actors: stop [{datetime.now().time()}]')
+        self.notify(f'Q3.III Movies that share majority of actors done')
     
-    def notify(string, e='\n'):
+    def notify(self, string):
+        print (f'{string} [{datetime.now().time()}]')
+
+    def message(self, string, e='\n'):
         print (f'{string}', end=e)
+
 
 def main():
     G = IMDBGraph()
-    gui = Gui(G)
+    cli = Cli(G)
+    G.setCli(cli)
     print('\n')
-    gui.importGraph()
+    cli.importGraph()
     print('\n')
-    gui.mostProductiveActor()
+    cli.mostProductiveActor()
     print('\n')
-    gui.cHat()
+    cli.cHat()
     print('\n')
-    gui.sharingMovies()
+    cli.sharingMovies()
 
 if __name__ == "__main__":
     main()

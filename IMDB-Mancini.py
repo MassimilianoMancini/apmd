@@ -4,6 +4,7 @@ import networkx as nx
 import random
 from numpy import log
 from datetime import datetime
+from itertools import combinations
 
 class IMDBGraph():
     def __init__(self):
@@ -99,14 +100,13 @@ class IMDBGraph():
     def _createFromFileVerbose(self, path):
         f = open(path, 'r')
         log = open(self.logFile, 'w')
-        message = 'Lines read: {:,}'
         i = 1
         for line in f:
             actor, movie, year, failure = self.getValues(line, log)
             if not failure:
                 self.addNodeToMainGraph(actor, movie, year)
                 self.addNodeToProdGraph(actor, self.getDecade(year))
-            self.cli.message(message.format(i), '\r')
+            self.cli.message(f'Lines read: {i:,}', '\r')
             i = i + 1
         log.close
         f.close
@@ -245,11 +245,51 @@ class IMDBGraph():
                                 m2 = movie2
         return m1, m2, maxShared
 
+    def topSharedActors(self):
+        self.cli.notify('Duplicating main graph start')
+        actors = set(self.mainGraph) - self.movies
+        graphCopy = self.mainGraph.copy()
+        self.cli.notify('Duplicating main graph done')
+
+        topCouple = [0, None, None]
+        i = 0
+        for actor1 in actors:
+            i = i + 1
+            movies = graphCopy[actor1].copy()
+            graphCopy.remove_node(actor1)
+            for movie in movies:
+                for actor2 in graphCopy[movie]:
+                    if self.actorGraph.has_edge(actor1, actor2):
+                        e = self.actorGraph.edges[actor1, actor2]
+                        weight = e['weight'] + 1
+                        e['weight'] = weight
+                        if topCouple[0] < weight:
+                            topCouple = [weight, actor1, actor2]
+                    else:
+                        self.actorGraph.add_edge(actor1, actor2, weight = 1)
+            self.cli.message(f'Number of actors done {i:,}', '\r')
+        return topCouple
+
+    def topSharedActors2(self):
+        topCouple = [0, None, None]
+        i = 0
+        for movie in self.movies:
+            if len(self.mainGraph[movie]) > 1:
+                self.actorGraph.add_weighted_edges_from(combinations(self.mainGraph[movie], 2))
+            i = i + 1
+            self.cli.message(f'Number of movies done {i:,}', '\r')
+        return topCouple
 
 
 class Cli():
     def __init__(self, G):
         self.G = G
+
+    def notify(self, string):
+        print (f'{string} [{datetime.now().time()}]')
+
+    def message(self, string, e='\n'):
+        print (string, end=e)
 
     def importGraph(self):   
         print ('\n')
@@ -314,13 +354,14 @@ class Cli():
         m1, m2, n = self.G.mostSharedMovies()
         print (f'The movies that share the majority of actors are {m1} and {m2} with {n} actors in common')
         self.notify(f'Q3.III Movies that share majority of actors done')
-    
-    def notify(self, string):
-        print (f'{string} [{datetime.now().time()}]')
 
-    def message(self, string, e='\n'):
-        print (f'{string}', end=e)
-
+    def createActorGraph(self):
+        self.notify(f'Q4. Create actor graph start')
+        tsa = self.G.topSharedActors2()
+        print ('\nActor graph')
+        print (self.G.actorGraph)
+        print (f'Most shared actors are {tsa[1]} and {tsa[2]} with {tsa[0]} movies')
+        self.notify(f'Q4. Create actor graph start')
 
 def main():
     G = IMDBGraph()
@@ -329,11 +370,14 @@ def main():
     print('\n')
     cli.importGraph()
     print('\n')
-    cli.mostProductiveActor()
+    # cli.mostProductiveActor()
     print('\n')
-    cli.cHat()
+    # cli.cHat()
     print('\n')
-    cli.sharingMovies()
+    # cli.sharingMovies()
+    print('\n')
+    cli.createActorGraph()
 
 if __name__ == "__main__":
     main()
+exit()

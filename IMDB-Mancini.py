@@ -182,10 +182,10 @@ class IMDBGraph():
         self.cli.message(f'Need to do {k} BFSs')
         random_nodes = random.sample(list(subGraph.nodes()), k)
         self.calcSoDForNode(subGraph, random_nodes)
-        for node in subGraph:
-            cHat = (k*(n-1))/(n*subGraph.nodes[node]['totdist'])
-            subGraph.nodes[node]['chat'] = cHat
-            if subGraph.nodes[node]['type'] == 'actor' and cHat > self.topTenCentralActors[0][0]:
+        for node, data in subGraph.nodes.data():
+            cHat = (k*(n-1))/(n*(max(data['totdist'],1)))
+            data['chat'] = cHat
+            if data['type'] == 'actor' and cHat > self.topTenCentralActors[0][0]:
                 heapreplace(self.topTenCentralActors, (cHat, node))
                            
     def calcSoDForNode(self, graph, random_nodes):

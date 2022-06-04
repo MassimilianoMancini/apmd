@@ -1,6 +1,7 @@
 import re
 import networkx as nx
 import random
+from heapq import heapreplace
 from numpy import log
 from datetime import datetime
 from itertools import combinations
@@ -31,14 +32,14 @@ class IMDBGraph():
         # Global time for DFS
         self.dfstime = 0
 
-        self.topTenCentralActors = [[0, '']]*10
+        self.topTenCentralActors = [(0, '')]*10
 
         self.movies = set()
 
     def setCli(self, cli):
         self.cli = cli
     
-    def generateSample(self, fraction = 50):
+    def generateSample(self, fraction):
         f = open("imdb-actors-actresses-movies.tsv", "r")
         g = open("sample.tsv", "w")
         i = 0
@@ -46,7 +47,7 @@ class IMDBGraph():
             lucky = random.randint(0, fraction)
             if (lucky == 13):
                 g.write(line)
-                i = i + 1
+                i += 1
 
         f.close
         g.close
@@ -58,25 +59,25 @@ class IMDBGraph():
         else:
             return ((year + 9) // 10) * 10
     
-    def getValues(self, line, log):
+    def getValues(self, line, logfile):
         
         failure = '', '', '', True
         actor, movie = line.split('\t')
 
         if self.mainGraph.has_edge(actor, movie):
-            log.write('DUPLICATE: ' + line)
+            logfile.write('DUPLICATE: ' + line)
             return failure
         
         yearMatched = self.reForYear.search(movie)
 
         if not yearMatched:
-            log.write('YEAR NOT FOUND: ' + line)
+            logfile.write('YEAR NOT FOUND: ' + line)
             return failure
      
         strYear = yearMatched.group(2)
         return actor, movie, int(strYear), False
 
-    def createFromFile(self, path, verbose=False):
+    def createFromFile(self, path, verbose):
         if verbose:
             self._createFromFileVerbose(path)
         else:
@@ -105,7 +106,7 @@ class IMDBGraph():
                 self.addNodeToMainGraph(actor, movie, year)
                 self.addNodeToProdGraph(actor, self.getDecade(year))
             self.cli.message(f'Lines read: {i:,}', '\r')
-            i = i + 1
+            i += 1
         log.close
         f.close
 
@@ -118,15 +119,12 @@ class IMDBGraph():
     def addNodeToProdGraph(self, actor, fromDecade):
         for decade in range(fromDecade, self.lastDecade, 10):
             if self.prodGraph.has_edge(decade, actor):
-                weight = self.prodGraph.edges[decade, actor]['weight']
-                self.prodGraph.edges[decade, actor]['weight'] = weight + 1
+                self.prodGraph.edges[decade, actor]['weight'] += 1
             else:
                 self.prodGraph.add_node(actor, type='actor')
                 self.prodGraph.add_edge(decade, actor, weight = 1)
 
-    def getMostProductiveActorUntil(self, decade = None):
-        if decade == None:
-            decade = self.lastDecade
+    def getMostProductiveActorUntil(self, decade):
         max = 0
         mostProductiveActor = None
         for actor in self.prodGraph[decade]:
@@ -137,8 +135,6 @@ class IMDBGraph():
     
     def _getFilteredBiggestCC(self, decade):
         self.cli.notify('Calculating biggest CC start')
-        if decade == None:
-            decade = self.lastDecade
 
         for node in self.mainGraph:
             self.mainGraph.nodes[node]['color'] = 'white'
@@ -164,44 +160,40 @@ class IMDBGraph():
         self.cli.notify(f'The biggest CC is {biggestCC[0]} with {len(biggestCC)} nodes')
         return biggestCC
 
-    def _filteredCC(self, start, year):
+    def _filteredCC(self, start, decade):
         cc = [start]
         i = 0
         while i < len(cc):
             currentNode = cc[i]
             for nextNode in self.mainGraph[currentNode]:
                 nn = self.mainGraph.nodes[nextNode]
-                if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= year)):
+                if nn['color'] == 'white' and (nn['type'] == 'actor' or (nn['type'] == 'movie' and nn['year'] <= decade)):
                     nn['color'] = 'gray'
                     cc.append(nextNode)
-            i = i + 1
+            i += 1
             self.mainGraph.nodes[currentNode]['color'] = 'black'
         return cc
 
-    def cHat(self, year, eps):
-        cc = self._getFilteredBiggestCC(year)
+    def cHat(self, decade, eps):
+        cc = self._getFilteredBiggestCC(decade)
         subGraph = self.mainGraph.subgraph(cc)
         n = subGraph.number_of_nodes()
         k = min(int(log(n)/eps) + 1, n)
         self.cli.message(f'Need to do {k} BFSs')
-        random_nodes = set(random.sample(list(subGraph.nodes()), k))
+        random_nodes = random.sample(list(subGraph.nodes()), k)
         self.calcSoDForNode(subGraph, random_nodes)
         for node in subGraph:
             cHat = (k*(n-1))/(n*subGraph.nodes[node]['totdist'])
             subGraph.nodes[node]['chat'] = cHat
-            if subGraph.nodes[node]['type'] == 'actor':
-                self._updateTopTenCentralActors(cHat, node)
-            
-    
-    def _updateTopTenCentralActors(self, cHat, node):
-        if cHat > self.topTenCentralActors[-1][0]:
-                self.topTenCentralActors[-1] = [cHat, node]
-                self.topTenCentralActors.sort(reverse=True)
-            
+            if subGraph.nodes[node]['type'] == 'actor' and cHat > self.topTenCentralActors[0][0]:
+                heapreplace(self.topTenCentralActors, (cHat, node))
+                           
     def calcSoDForNode(self, graph, random_nodes):
+        i = 0
+        
         for node in graph:
             graph.nodes[node]['totdist'] = 0
-        i = 0
+
         for v in random_nodes:
             for node in graph:
                 graph.nodes[node]['color'] = 'white'
@@ -219,7 +211,7 @@ class IMDBGraph():
                         nn['totdist'] += nn['dist']
                         queue.append(nbr)
                 graph.nodes[current]['color'] = 'black'
-            i = i + 1
+            i += 1
             self.cli.notify(f'BFS n. {i} done')
         return
 
@@ -240,20 +232,19 @@ class IMDBGraph():
 
     def createActorGraph(self):
         topCouple = [0, None, None]   
-        # i = 0
+        i = 0
         for movie in self.movies:
-            if len(self.mainGraph[movie]) > 1:
-                for actor1, actor2 in combinations(self.mainGraph[movie], 2):
+            m = self.mainGraph[movie]
+            if len(m) > 1:
+                for actor1, actor2 in combinations(m, 2):
                     if self.actorGraph.has_edge(actor1, actor2):
-                        e = self.actorGraph.edges[actor1, actor2]
-                        weight = e['weight'] + 1
-                        e['weight'] = weight
-                        if topCouple[0] < weight:
-                            topCouple = [weight, actor1, actor2]
+                        self.actorGraph.edges[actor1, actor2]['weight'] += 1
+                        if topCouple[0] < self.actorGraph.edges[actor1, actor2]['weight']:
+                            topCouple = [self.actorGraph.edges[actor1, actor2]['weight'], actor1, actor2]
                     else:
                         self.actorGraph.add_edge(actor1, actor2, weight = 1)
-            # i = i + 1
-            # self.cli.message(f'Number of movies done {i:,}', '\r')
+            i = i + 1
+            self.cli.message(f'Movies processed {i:,}', '\r')
         return topCouple
 
     def clearGraphs(self):
@@ -303,7 +294,7 @@ class Cli():
             verbose = True
             way = 'verbose mode'
 
-        self.notify(f'Import data {way} start (est. 4min)')
+        self.notify(f'Import data {way} start (est. 2\')')
         self.G.createFromFile(path, verbose)
         print ('Main graph')
         print (self.G.mainGraph)
@@ -331,13 +322,13 @@ class Cli():
         self.notify(f'Calculate c-hat for all nodes in the biggest CC until year {y} done')
 
     def sharingMovies(self):
-        self.notify(f'Q3.III Movies that share majority of actors start (est. 4min)')
+        self.notify(f'Q3.III Movies that share majority of actors start (est. 3\')')
         m1, m2, n = self.G.mostSharedMovies()
         print (f'The movies that share the majority of actors are {m1} and {m2} with {n} actors in common')
         self.notify(f'Q3.III Movies that share majority of actors done')
 
     def createActorGraph(self):
-        self.notify(f'Q4. Create actor graph start')
+        self.notify(f'Q4. Create actor graph start (est. 25\')')
         nOfMovies, actor1, actor2 = self.G.createActorGraph()
         print ('\nActor graph')
         print (self.G.actorGraph)
@@ -367,5 +358,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 exit()

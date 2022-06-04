@@ -178,7 +178,7 @@ class IMDBGraph():
         cc = self._getFilteredBiggestCC(decade)
         subGraph = self.mainGraph.subgraph(cc)
         n = subGraph.number_of_nodes()
-        k = min(int(log(n)/eps) + 1, n)
+        k = min(int(log(n)/(eps*eps)) + 1, n)
         self.cli.message(f'Need to do {k} BFSs')
         random_nodes = random.sample(list(subGraph.nodes()), k)
         self.calcSoDForNode(subGraph, random_nodes)

@@ -1,4 +1,3 @@
-import logging
 import re
 import networkx as nx
 import random
@@ -94,7 +93,6 @@ class IMDBGraph():
                 decade = self.getDecade(year)
                 self.addNodeToMainGraph(actor, movie, year)
                 self.addNodeToProdGraph(actor, decade)
-                
         f.close
 
     def _createFromFileVerbose(self, path):
@@ -126,7 +124,9 @@ class IMDBGraph():
                 self.prodGraph.add_node(actor, type='actor')
                 self.prodGraph.add_edge(decade, actor, weight = 1)
 
-    def getMostProductiveActorUntil(self, decade = 2020):
+    def getMostProductiveActorUntil(self, decade = None):
+        if decade == None:
+            decade = self.lastDecade
         max = 0
         mostProductiveActor = None
         for actor in self.prodGraph[decade]:
@@ -135,9 +135,10 @@ class IMDBGraph():
                 mostProductiveActor = actor
         return mostProductiveActor, max
     
-    def _getFilteredBiggestCC(self, year = None):
-        if year == None:
-            year = self.lastDecade
+    def _getFilteredBiggestCC(self, decade):
+        self.cli.notify('Calculating biggest CC start')
+        if decade == None:
+            decade = self.lastDecade
 
         for node in self.mainGraph:
             self.mainGraph.nodes[node]['color'] = 'white'
@@ -150,8 +151,8 @@ class IMDBGraph():
             dimension = 0
             cc = []
             m = self.mainGraph.nodes[movie]
-            if m['type'] == 'movie' and m['year'] <= year and m['color'] == 'white':
-                cc = self._filteredCC(movie, year)
+            if m['type'] == 'movie' and m['year'] <= decade and m['color'] == 'white':
+                cc = self._filteredCC(movie, decade)
                 dimension = len(cc)
                 remainNodes = remainNodes - dimension
                 if dimension > maxDimension:
@@ -237,20 +238,12 @@ class IMDBGraph():
                                 m2 = movie2
         return m1, m2, maxShared
 
-    def topSharedActors(self):
-        self.cli.notify('Duplicating main graph start')
-        actors = set(self.mainGraph) - self.movies
-        graphCopy = self.mainGraph.copy()
-        self.cli.notify('Duplicating main graph done')
-
-        topCouple = [0, None, None]
-        i = 0
-        for actor1 in actors:
-            i = i + 1
-            movies = graphCopy[actor1].copy()
-            graphCopy.remove_node(actor1)
-            for movie in movies:
-                for actor2 in graphCopy[movie]:
+    def createActorGraph(self):
+        topCouple = [0, None, None]   
+        # i = 0
+        for movie in self.movies:
+            if len(self.mainGraph[movie]) > 1:
+                for actor1, actor2 in combinations(self.mainGraph[movie], 2):
                     if self.actorGraph.has_edge(actor1, actor2):
                         e = self.actorGraph.edges[actor1, actor2]
                         weight = e['weight'] + 1
@@ -259,25 +252,14 @@ class IMDBGraph():
                             topCouple = [weight, actor1, actor2]
                     else:
                         self.actorGraph.add_edge(actor1, actor2, weight = 1)
-            self.cli.message(f'Number of actors done {i:,}', '\r')
+            # i = i + 1
+            # self.cli.message(f'Number of movies done {i:,}', '\r')
         return topCouple
 
-    def createActorGraph(self):      
-        i = 0
-        for movie in self.movies:
-            if len(self.mainGraph[movie]) > 1:
-                self.actorGraph.add_weighted_edges_from([(e[0], e[1], 1) for e in combinations(self.mainGraph[movie], 2)])
-            i = i + 1
-            self.cli.message(f'Number of movies done {i:,}', '\r')
-
-    def topCouple(self):
-        topCouple = [0, None, None]
-        for u, v, w in self.actorGraph.edges.data('weight'):
-            if w > topCouple[0]:
-                topCouple = [w, v, u]
-        return topCouple
-
-
+    def clearGraphs(self):
+        self.mainGraph.clear()
+        self.prodGraph.clear()
+        self.actorGraph.clear()
 
 
 class Cli():
@@ -356,12 +338,15 @@ class Cli():
 
     def createActorGraph(self):
         self.notify(f'Q4. Create actor graph start')
+        nOfMovies, actor1, actor2 = self.G.createActorGraph()
         print ('\nActor graph')
-        self.G.createActorGraph()
         print (self.G.actorGraph)
-        tsa = self.G.topCouple()
-        print (f'Most shared actors are {tsa[1]} and {tsa[2]} with {tsa[0]} movies')
-        self.notify(f'Q4. Create actor graph start')
+        print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
+        self.notify(f'Q4. Create actor graph done')
+
+    def clearGraphs(self):
+        self.G.clearGraphs()
+        print('All graphes were cleared')
 
 def main():
     G = IMDBGraph()
@@ -370,14 +355,17 @@ def main():
     print('\n')
     cli.importGraph()
     print('\n')
-    # cli.mostProductiveActor()
+    cli.mostProductiveActor()
     print('\n')
-    # cli.cHat()
+    cli.cHat()
     print('\n')
-    # cli.sharingMovies()
+    cli.sharingMovies()
     print('\n')
     cli.createActorGraph()
+    print('\n')
+    cli.clearGraphs()
 
 if __name__ == "__main__":
     main()
+
 exit()

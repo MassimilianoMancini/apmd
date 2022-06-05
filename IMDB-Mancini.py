@@ -40,6 +40,10 @@ class IMDBGraph():
         self.cli = cli
     
     def generateSample(self, fraction):
+        """
+        Generate a sample input file from original complete file
+        sampling one row out of fraction
+        """
         f = open("imdb-actors-actresses-movies.tsv", "r")
         g = open("sample.tsv", "w")
         i = 0
@@ -54,12 +58,19 @@ class IMDBGraph():
         return i
 
     def getDecade(self, year):
+        """
+        Return decade in range 1930 - 2020 given year
+        """
         if year < 1931:
             return 1930
         else:
             return ((year + 9) // 10) * 10
     
     def getValues(self, line, logfile):
+        """
+        Retrieve values of actor, movie and year from a line of input file.
+        Also log errors of duplicated line or missing year in a log file. 
+        """
         
         failure = '', '', '', True
         actor, movie = line.split('\t')
@@ -84,6 +95,12 @@ class IMDBGraph():
             self._createFromFileFast(path)
      
     def _createFromFileFast(self, path):
+        """
+        Create main graph and production graph from input file in a fast way. 
+        This means that all read errors are discarded without notification 
+        and no progress messages are displayed. In order to log errors and 
+        have progress message use verbose way
+        """
         f = open(path, 'r')
         for line in f:
             matchedLine = self.reActorMovieYear.match(line)
@@ -97,6 +114,11 @@ class IMDBGraph():
         f.close
 
     def _createFromFileVerbose(self, path):
+        """
+        Create main graph and production graph from input file in verbose way. 
+        This means that all errors are logged and a progress message is 
+        displayed during import. Verbose time is about twice as long as fast way
+        """
         f = open(path, 'r')
         log = open(self.logFile, 'w')
         i = 1
@@ -111,12 +133,23 @@ class IMDBGraph():
         f.close
 
     def addNodeToMainGraph(self, actor, movie, year):
+        """
+        Add a single node to main graph. Default attributes on node are setted.
+        It also feed the list of movies that will be used in other methods
+        """
         self.mainGraph.add_node(actor, type='actor', color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_node(movie, type='movie', year=year, color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_edge(actor, movie)
         self.movies.add(movie)
 
     def addNodeToProdGraph(self, actor, fromDecade):
+        """
+        Add a single node to production graph.
+        Production graph is used to count the most productive actor within 
+        a defined decade. Production graph is a bipartite graph with two types
+        of nodes: decade and actor. A weigted edge connect an actor to a decade
+        counting the number of movies that the actor have done within that decade
+        """
         for decade in range(fromDecade, self.lastDecade, 10):
             if self.prodGraph.has_edge(decade, actor):
                 self.prodGraph.edges[decade, actor]['weight'] += 1
@@ -125,6 +158,10 @@ class IMDBGraph():
                 self.prodGraph.add_edge(decade, actor, weight = 1)
 
     def getMostProductiveActorUntil(self, decade):
+        """
+        Return the most productive actor within a defined decade.
+        Just iter on decades nodes and retrieve the heaviest edge
+        """
         max = 0
         mostProductiveActor = None
         for actor in self.prodGraph[decade]:
@@ -134,6 +171,14 @@ class IMDBGraph():
         return mostProductiveActor, max
     
     def _getFilteredBiggestCC(self, decade):
+        """
+        Returns the biggest connected component filtered by year
+        (or in this project by decade). It is realized through 
+        a BFS (_filteredCC) that filter movie nodes by year. 
+        Main loop exits if remaining nodes are less or equal 
+        then nodes in CC. In case of two CC with same degree, 
+        the first discovered is taken
+        """
         self.cli.notify('Calculating biggest CC start')
 
         for node in self.mainGraph:
@@ -154,13 +199,19 @@ class IMDBGraph():
                 if dimension > maxDimension:
                     maxDimension = dimension
                     biggestCC = cc.copy()
-            if maxDimension > remainNodes:
+            if maxDimension >= remainNodes:
                 break
 
         self.cli.notify(f'The biggest CC is {biggestCC[0]} with {len(biggestCC)} nodes')
         return biggestCC
 
     def _filteredCC(self, start, decade):
+        """
+        Return a list of a filtered CC based on year (or decade in this project)
+        A BFS is performed. It uses a queue 
+        but elements are not popped out in order to maintain 
+        the list of nodes belonging to the connected component
+        """
         cc = [start]
         i = 0
         while i < len(cc):
@@ -175,6 +226,14 @@ class IMDBGraph():
         return cc
 
     def cHat(self, decade, eps):
+        """
+        Calculates approximated closeness centrality (c-hat) for all nodes of
+        main graph. Approximation is achieved doing k BFSs from different
+        k vertexes randomly sampled. If k is in the order of theta log(n)/eps^2
+        than the stimator is proven to be correct
+        In order to retrieve the top 10 most central actor, a heap data
+        structure (heapq) is used. 
+        """
         cc = self._getFilteredBiggestCC(decade)
         subGraph = self.mainGraph.subgraph(cc)
         n = subGraph.number_of_nodes()
@@ -189,6 +248,11 @@ class IMDBGraph():
                 heapreplace(self.topTenCentralActors, (cHat, node))
                            
     def calcSoDForNode(self, graph, random_nodes):
+        """
+        Calculates the sum of distances for every node from a sample of
+        random nodes. The sum it is used to calculate the stimated closeness 
+        centrality. The sum is stored in totdist attribute
+        """
         i = 0
         
         for node in graph:
@@ -216,6 +280,13 @@ class IMDBGraph():
         return
 
     def mostSharedMovies(self):
+        """
+        Returns the couple of movie that share the biggest number of actors.
+        First outer iteration is on movies of graph (movie1), the second iteration 
+        is on actors of movie1, the third iteration is again on movies (movie2)
+        of actor. This way we find all movies of distance 2. We get cardinality
+        of intersection between the two movies and save the maximum
+        """
         maxShared = 0
         movieSubGraph = self.mainGraph.subgraph(self.movies)
         for movie1 in movieSubGraph:
@@ -231,6 +302,13 @@ class IMDBGraph():
         return m1, m2, maxShared
 
     def createActorGraph(self):
+        """
+        Create the actor graph with weighted edges between actors. The weight of
+        edges represents the number of movies the two actors do toghether. 
+        The main iteration is on movie. For each we create as many edges as 
+        the combinations of actors in the movie. If a edge already exists, its
+        weght is incremented by 1
+        """
         topCouple = [0, None, None]   
         i = 0
         for movie in self.movies:

@@ -109,13 +109,15 @@ class IMDBGraph():
         Exposed method to let user choose fast or verbose mode of import
         """
         if not exists(path):
-            self.cli.message('File {path} not found. Please generate a new sample or copy the full file')
-
-        if verbose:
-            self._createFromFileVerbose(path)
+            self.cli.message(f'File {path} not found. Please generate a new sample or copy the full file')
+            return False
         else:
-            self._createFromFileFast(path)
-     
+            if verbose:
+                self._createFromFileVerbose(path)
+            else:
+                self._createFromFileFast(path)
+            return True
+        
     def _createFromFileFast(self, path):
         """
         Create main graph and production graph from input file in a fast way. 
@@ -407,15 +409,17 @@ class Cli():
             way = 'verbose mode'
             if f1 == 1:
                 est = ' (est. 4\')'
-
-        self.notify(f'Import data {way} start{est}')
-        self.G.createFromFile(path, verbose)
-        print ('Main graph')
-        print (self.G.mainGraph)
-        print (f'There are {len(self.G.movies)} movies and {self.G.mainGraph.number_of_nodes() - len(self.G.movies)} actors')
-        print ('Producion graph')
-        print (self.G.prodGraph)
-        self.notify(f'Import data {way} done')
+   
+        if self.G.createFromFile(path, verbose):
+            self.notify(f'Import data {way} start{est}')
+            print ('Main graph')
+            print (self.G.mainGraph)
+            print (f'There are {len(self.G.movies)} movies and {self.G.mainGraph.number_of_nodes() - len(self.G.movies)} actors')
+            print ('Producion graph')
+            print (self.G.prodGraph)
+            self.notify(f'Import data {way} done')
+        else:
+            exit()
 
     def mostProductiveActor(self):
         """

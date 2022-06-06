@@ -108,6 +108,9 @@ class IMDBGraph():
         """
         Exposed method to let user choose fast or verbose mode of import
         """
+        if not exists(path):
+            self.cli.message('File {path} not found. Please generate a new sample or copy the full file')
+
         if verbose:
             self._createFromFileVerbose(path)
         else:
@@ -139,8 +142,6 @@ class IMDBGraph():
         displayed during import. Verbose time is about twice as long as fast way
         """
         f = open(path, 'r')
-        if not exists(self.logFile):
-            self.generateSample(50)
         log = open(self.logFile, 'w')
         i = 1
         for line in f:

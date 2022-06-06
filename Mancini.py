@@ -7,6 +7,12 @@ from datetime import datetime
 from itertools import combinations
 
 class IMDBGraph():
+    """
+    The most important data structure are three graphs: main, production and actor.
+    Methods for import data from file, calculate connected components, BFS 
+    and closeness centrality approximation are implemented
+    """
+
     def __init__(self):
 
         # Log File for error in verbose mode
@@ -35,6 +41,8 @@ class IMDBGraph():
         self.topTenCentralActors = [(0, '')]*10
 
         self.movies = set()
+
+        self.topActorCouple = [0, '', '']
 
     def setCli(self, cli):
         self.cli = cli
@@ -89,6 +97,9 @@ class IMDBGraph():
         return actor, movie, int(strYear), False
 
     def createFromFile(self, path, verbose):
+        """
+        Exposed method to let user choose fast or verbose mode of import
+        """
         if verbose:
             self._createFromFileVerbose(path)
         else:
@@ -288,17 +299,17 @@ class IMDBGraph():
         of intersection between the two movies and save the maximum
         """
         maxShared = 0
-        movieSubGraph = self.mainGraph.subgraph(self.movies)
-        for movie1 in movieSubGraph:
-            for actor in self.mainGraph[movie1]:
-                if self.mainGraph.degree[actor] > maxShared:
-                    for movie2 in self.mainGraph[actor]:
-                        if self.mainGraph.degree[movie2] > maxShared and movie2 != movie1:
-                            nOfSharedActors = len(set(self.mainGraph[movie1]).intersection(set(self.mainGraph[movie2])))
-                            if nOfSharedActors > maxShared:
-                                maxShared = nOfSharedActors
-                                m1 = movie1
-                                m2 = movie2
+        for movie1 in self.movies:
+            if self.mainGraph.degree[movie1] > maxShared:
+                for actor in self.mainGraph[movie1]:
+                    if self.mainGraph.degree[actor] > 1:
+                        for movie2 in self.mainGraph[actor]:
+                            if self.mainGraph.degree[movie2] > maxShared and movie2 != movie1:
+                                nOfSharedActors = len(set(self.mainGraph[movie1]).intersection(set(self.mainGraph[movie2])))
+                                if nOfSharedActors > maxShared:
+                                    maxShared = nOfSharedActors
+                                    m1 = movie1
+                                    m2 = movie2
         return m1, m2, maxShared
 
     def createActorGraph(self):
@@ -309,70 +320,84 @@ class IMDBGraph():
         the combinations of actors in the movie. If a edge already exists, its
         weght is incremented by 1
         """
-        topCouple = [0, None, None]   
+
         i = 0
+        md = len(self.movies)
         for movie in self.movies:
             m = self.mainGraph[movie]
             if len(m) > 1:
                 for actor1, actor2 in combinations(m, 2):
                     if self.actorGraph.has_edge(actor1, actor2):
                         self.actorGraph.edges[actor1, actor2]['weight'] += 1
-                        if topCouple[0] < self.actorGraph.edges[actor1, actor2]['weight']:
-                            topCouple = [self.actorGraph.edges[actor1, actor2]['weight'], actor1, actor2]
+                        if self.topActorCouple[0] < self.actorGraph.edges[actor1, actor2]['weight']:
+                            self.topActorCouple = [self.actorGraph.edges[actor1, actor2]['weight'], actor1, actor2]
                     else:
                         self.actorGraph.add_edge(actor1, actor2, weight = 1)
             i = i + 1
-            self.cli.message(f'Movies processed {i:,}', '\r')
-        return topCouple
-
-    def clearGraphs(self):
-        self.mainGraph.clear()
-        self.prodGraph.clear()
-        self.actorGraph.clear()
-
+            self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
 
 class Cli():
+    """
+    Command line interface, used to get some input and display some output
+    """
     def __init__(self, G):
         self.G = G
+        self.est2 = ''
+        self.closeMessage = ''
 
     def notify(self, string):
-        print (f'{string} [{datetime.now().time()}]')
+        """
+        Notify some event with timestamp
+        """
+        print (f'[{datetime.now().time()}] {string}')
 
     def message(self, string, e='\n'):
+        """
+        Print some message, mostly used to display progression
+        """
         print (string, end=e)
 
-    def importGraph(self):   
+    def importGraph(self):
+        """
+        Import graph cli
+        """
+        est = ''
+
         print ('\n')
         print ('-----------------------------------------')
         print ('IMDB Graph project (Massimiliano Mancini)')
         print ('-----------------------------------------')
-        f = int (input('Select file to import or generate a new sample \n[1] Full\n[2] Sample\n[3] Test\n[4] Create new sample and exit\n[0] Exit\n-> '))
+        f1 = int (input('Select file to import or generate a new sample \n[1] Full\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
 
-        if f == 0:
+        if f1 == 0:
             exit()
-        elif f == 1:
+        elif f1 == 1:
             path = 'imdb-actors-actresses-movies.tsv'
-        elif f == 2:
+            self.est2 = ' (est. 25\')'
+            self.closeMessage = 'Exit from program, est. 50\', I don\'t know why...'
+        elif f1 == 2:
             path = 'sample.tsv'
-        elif f == 3:
-            path = 'test.tsv'
-        elif f == 4:
+        elif f1 == 3:
             s = int(input('Sample 1 row every (min 20)\n[50]-> ') or "50")
             rows = self.G.generateSample(s)
             print (f'File sample.tsv generated with {rows} rows')
             exit()
 
-        f = int (input('[1] Fast import\n[2] Verbose import\n[0] Exit\n-> '))
-        if f == 0:
+        f2 = int (input('[1] Fast import\n[2] Verbose import\n[0] Exit\n-> '))
+        if f2 == 0:
             exit()
-        elif f == 1:
+        elif f2 == 1:
             verbose = False
             way = 'fast mode'
-        elif f ==2:
+            if f1 == 1:
+                est = ' (est. 2\')'
+        elif f2 ==2:
             verbose = True
             way = 'verbose mode'
+            if f1 == 1:
+                est = ' (est. 4\')'
 
-        self.notify(f'Import data {way} start (est. 2\')')
+        self.notify(f'Import data {way} start{est}')
         self.G.createFromFile(path, verbose)
         print ('Main graph')
         print (self.G.mainGraph)
@@ -382,6 +407,9 @@ class Cli():
         self.notify(f'Import data {way} done')
 
     def mostProductiveActor(self):
+        """
+        Question 1.C, show the most productive actor until given decade
+        """
         y = int(input('Q1.C: Select decade (1930-2020) for most productive actor\n[2020]->  ') or "2020")
 
         self.notify(f'Find the most productive actor until {y} start')
@@ -390,32 +418,41 @@ class Cli():
         self.notify(f'Find the most productive actor until {y} done')
 
     def cHat(self):
+        """
+        Question 2.3, calculate approximate closeness centrality for every
+        node and show the top ten central actors
+        """
         y = int(input('Q2.3: Select decade (1930-2020) for biggest connected component\n[2020]-> ') or "2020")
-        eps = float(input('Q2.3: Set the epsilon[0.1]\n-> ') or "0.1")
+        eps = float(input('Q2.3: Set the epsilon\n[0.1]-> ') or "0.1")
         self.notify(f'Calculate c-hat for all nodes in the biggest CC until year {y} start')
         biggestCC = self.G.cHat(y, eps)
         print ('Most central actors are:')
-        for chat, actor in self.G.topTenCentralActors:
-            print (f'{actor:30s} \t\t {chat:.5f}')
+        for chat, actor in sorted(self.G.topTenCentralActors, reverse=True):
+            print (f'{actor:30s} \t{chat:.5f}')
         self.notify(f'Calculate c-hat for all nodes in the biggest CC until year {y} done')
 
     def sharingMovies(self):
-        self.notify(f'Q3.III Movies that share majority of actors start (est. 3\')')
+        """
+        Question 3.III, show the movies that have the biggest number of
+        actors in common
+        """
+        self.notify(f'Q3.III Movies that share majority of actors start')
         m1, m2, n = self.G.mostSharedMovies()
         print (f'The movies that share the majority of actors are {m1} and {m2} with {n} actors in common')
         self.notify(f'Q3.III Movies that share majority of actors done')
 
     def createActorGraph(self):
-        self.notify(f'Q4. Create actor graph start (est. 25\')')
-        nOfMovies, actor1, actor2 = self.G.createActorGraph()
+        """
+        Question 4, create the actor graph and show the two actors that 
+        partecipate togheter to the biggest number of movies
+        """
+        self.notify(f'Q4. Create actor graph start{self.est2}')
+        self.G.createActorGraph()
+        nOfMovies, actor1, actor2 = self.G.topActorCouple
         print ('\nActor graph')
         print (self.G.actorGraph)
         print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
         self.notify(f'Q4. Create actor graph done')
-
-    def clearGraphs(self):
-        self.G.clearGraphs()
-        print('All graphes were cleared')
 
 def main():
     G = IMDBGraph()
@@ -432,7 +469,7 @@ def main():
     print('\n')
     cli.createActorGraph()
     print('\n')
-    cli.clearGraphs()
+    print(cli.closeMessage)
 
 if __name__ == "__main__":
     main()

@@ -5,6 +5,7 @@ from heapq import heapreplace
 from numpy import log
 from datetime import datetime
 from itertools import combinations
+from os.path import exists
 
 class IMDBGraph():
     """
@@ -38,13 +39,20 @@ class IMDBGraph():
         # Global time for DFS
         self.dfstime = 0
 
+        # Structure to record top ten actor wrt closeness centrality approx
         self.topTenCentralActors = [(0, '')]*10
 
+        # Set with movie titles
         self.movies = set()
 
+        # Structure to record couple of actor that most worked together
         self.topActorCouple = [0, '', '']
 
+    
     def setCli(self, cli):
+        """
+        Set cli interface to send notification messages
+        """
         self.cli = cli
     
     def generateSample(self, fraction):
@@ -131,6 +139,8 @@ class IMDBGraph():
         displayed during import. Verbose time is about twice as long as fast way
         """
         f = open(path, 'r')
+        if not exists(self.logFile):
+            self.generateSample(50)
         log = open(self.logFile, 'w')
         i = 1
         for line in f:
@@ -288,7 +298,6 @@ class IMDBGraph():
                 graph.nodes[current]['color'] = 'black'
             i += 1
             self.cli.notify(f'BFS n. {i} done')
-        return
 
     def mostSharedMovies(self):
         """
@@ -304,7 +313,7 @@ class IMDBGraph():
                 for actor in self.mainGraph[movie1]:
                     if self.mainGraph.degree[actor] > 1:
                         for movie2 in self.mainGraph[actor]:
-                            if self.mainGraph.degree[movie2] > maxShared and movie2 != movie1:
+                            if (self.mainGraph.degree[movie2] > maxShared) and (movie2 != movie1):
                                 nOfSharedActors = len(set(self.mainGraph[movie1]).intersection(set(self.mainGraph[movie2])))
                                 if nOfSharedActors > maxShared:
                                     maxShared = nOfSharedActors
@@ -328,9 +337,10 @@ class IMDBGraph():
             if len(m) > 1:
                 for actor1, actor2 in combinations(m, 2):
                     if self.actorGraph.has_edge(actor1, actor2):
-                        self.actorGraph.edges[actor1, actor2]['weight'] += 1
-                        if self.topActorCouple[0] < self.actorGraph.edges[actor1, actor2]['weight']:
-                            self.topActorCouple = [self.actorGraph.edges[actor1, actor2]['weight'], actor1, actor2]
+                        newWeight = self.actorGraph.edges[actor1, actor2]['weight'] + 1
+                        self.actorGraph.edges[actor1, actor2]['weight'] += newWeight
+                        if self.topActorCouple[0] < newWeight:
+                            self.topActorCouple = [newWeight, actor1, actor2]
                     else:
                         self.actorGraph.add_edge(actor1, actor2, weight = 1)
             i = i + 1

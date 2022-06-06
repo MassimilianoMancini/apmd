@@ -339,7 +339,7 @@ class IMDBGraph():
                 for actor1, actor2 in combinations(m, 2):
                     if self.actorGraph.has_edge(actor1, actor2):
                         newWeight = self.actorGraph.edges[actor1, actor2]['weight'] + 1
-                        self.actorGraph.edges[actor1, actor2]['weight'] += newWeight
+                        self.actorGraph.edges[actor1, actor2]['weight'] = newWeight
                         if self.topActorCouple[0] < newWeight:
                             self.topActorCouple = [newWeight, actor1, actor2]
                     else:

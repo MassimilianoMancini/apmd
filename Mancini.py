@@ -2,13 +2,13 @@ import re
 import networkx as nx
 import random
 from heapq import heapreplace
-from numpy import log
+from math import log
 from datetime import datetime
 from itertools import combinations
 
 class IMDBGraph():
     """
-    The most important data structure are three graphs: main, production and actor.
+    Graphs are: main, production and actor.
     Methods for import data from file, calculate connected components, BFS 
     and closeness centrality approximation are implemented
     """
@@ -35,9 +35,6 @@ class IMDBGraph():
         self.reForYear = re.compile('(\()(\d\d\d\d)([/IXV])*(\))')
         self.reActorMovieYear = re.compile('(.+)\t(.+(?<=\()(\d\d\d\d)(?=[/IXV]*\)).*)')
 
-        # Global time for DFS
-        self.dfstime = 0
-
         # Structure to record top ten actor wrt closeness centrality approx
         self.topTenCentralActors = [(0, '')]*10
 
@@ -46,8 +43,7 @@ class IMDBGraph():
 
         # Structure to record couple of actor that most worked together
         self.topActorCouple = [0, '', '']
-
-    
+  
     def setCli(self, cli):
         """
         Set cli interface to send notification messages
@@ -143,20 +139,21 @@ class IMDBGraph():
         for line in f:
             actor, movie, year, failure = self.getValues(line, log)
             if not failure:
+                decade = self.getDecade(year)
                 self.addNodeToMainGraph(actor, movie, year)
-                self.addNodeToProdGraph(actor, self.getDecade(year))
+                self.addNodeToProdGraph(actor, decade)
             self.cli.message(f'Lines read: {i:,}', '\r')
             i += 1
         log.close
         f.close
 
-    def addNodeToMainGraph(self, actor, movie, year):
+    def addNodeToMainGraph(self, actor, movie, movieYear):
         """
         Add a single node to main graph. Default attributes on node are setted.
         It also feed the list of movies that will be used in other methods
         """
         self.mainGraph.add_node(actor, type='actor', color='white', dist = 0, totdist = 0, chat = None)
-        self.mainGraph.add_node(movie, type='movie', year=year, color='white', dist = 0, totdist = 0, chat = None)
+        self.mainGraph.add_node(movie, type='movie', year=movieYear, color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_edge(actor, movie)
         self.movies.add(movie)
 
@@ -188,6 +185,28 @@ class IMDBGraph():
                 mostProductiveActor = actor
         return mostProductiveActor, max
     
+    def cHat(self, decade, eps):
+        """
+        Calculates approximated closeness centrality (c-hat) for all nodes of
+        main graph. Approximation is achieved doing k BFSs from different
+        k vertexes randomly sampled. If k is in the order of theta log(n)/eps^2
+        than the stimator is proven to be correct
+        In order to retrieve the top 10 most central actor, a heap data
+        structure (heapq) is used. 
+        """
+        cc = self._getFilteredBiggestCC(decade)
+        subGraph = self.mainGraph.subgraph(cc)
+        n = subGraph.number_of_nodes()
+        k = min(int(log(n)/(eps*eps)) + 1, n)
+        self.cli.message(f'Need to do {k} BFSs')
+        random_nodes = random.sample(list(subGraph.nodes()), k)
+        self._calcSoDForNode(subGraph, random_nodes)
+        for node, data in subGraph.nodes.data():
+            cHat = (k*(n-1))/(n*(max(data['totdist'],1)))
+            data['chat'] = cHat
+            if data['type'] == 'actor' and cHat > self.topTenCentralActors[0][0]:
+                heapreplace(self.topTenCentralActors, (cHat, node))
+
     def _getFilteredBiggestCC(self, decade):
         """
         Returns the biggest connected component filtered by year
@@ -243,29 +262,8 @@ class IMDBGraph():
             self.mainGraph.nodes[currentNode]['color'] = 'black'
         return cc
 
-    def cHat(self, decade, eps):
-        """
-        Calculates approximated closeness centrality (c-hat) for all nodes of
-        main graph. Approximation is achieved doing k BFSs from different
-        k vertexes randomly sampled. If k is in the order of theta log(n)/eps^2
-        than the stimator is proven to be correct
-        In order to retrieve the top 10 most central actor, a heap data
-        structure (heapq) is used. 
-        """
-        cc = self._getFilteredBiggestCC(decade)
-        subGraph = self.mainGraph.subgraph(cc)
-        n = subGraph.number_of_nodes()
-        k = min(int(log(n)/(eps*eps)) + 1, n)
-        self.cli.message(f'Need to do {k} BFSs')
-        random_nodes = random.sample(list(subGraph.nodes()), k)
-        self.calcSoDForNode(subGraph, random_nodes)
-        for node, data in subGraph.nodes.data():
-            cHat = (k*(n-1))/(n*(max(data['totdist'],1)))
-            data['chat'] = cHat
-            if data['type'] == 'actor' and cHat > self.topTenCentralActors[0][0]:
-                heapreplace(self.topTenCentralActors, (cHat, node))
                            
-    def calcSoDForNode(self, graph, random_nodes):
+    def _calcSoDForNode(self, graph, random_nodes):
         """
         Calculates the sum of distances for every node from a sample of
         random nodes. The sum it is used to calculate the stimated closeness 
@@ -343,6 +341,7 @@ class IMDBGraph():
             i = i + 1
             self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
 
+
 class Cli():
     """
     Command line interface, used to get some input and display some output
@@ -370,7 +369,7 @@ class Cli():
         print ('-----------------------------------------')
         print ('IMDB Graph project (Massimiliano Mancini)')
         print ('-----------------------------------------')
-        f1 = int (input('Select file to import or generate a new sample \n[1] Full DB\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
+        f1 = int (input('Select file to import or generate a new sample \n[1] Full IMDB archive\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
 
         if f1 == 0:
             exit()
@@ -404,7 +403,6 @@ class Cli():
         print (self.G.prodGraph)
         self.notify(f'Import data {way} done')
 
-
     def mostProductiveActor(self):
         """
         Question 1.C, show the most productive actor until given decade
@@ -424,7 +422,7 @@ class Cli():
         y = int(input('Q2.3: Select decade (1930-2020) for biggest connected component\n[2020]-> ') or "2020")
         eps = float(input('Q2.3: Set the epsilon\n[0.1]-> ') or "0.1")
         self.notify(f'Calculate c-hat for all nodes in the biggest CC until year {y} start')
-        biggestCC = self.G.cHat(y, eps)
+        self.G.cHat(y, eps)
         print ('Most central actors are:')
         for chat, actor in sorted(self.G.topTenCentralActors, reverse=True):
             print (f'{actor:30s} \t{chat:.5f}')
@@ -452,6 +450,7 @@ class Cli():
         print (self.G.actorGraph)
         print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
         self.notify(f'Q4. Create actor graph done')
+
 
 def main():
     G = IMDBGraph()

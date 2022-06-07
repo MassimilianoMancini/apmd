@@ -403,7 +403,6 @@ class Cli():
         print (self.G.prodGraph)
         self.notify(f'Import data {way} done')
 
-
     def mostProductiveActor(self):
         """
         Question 1.C, show the most productive actor until given decade
@@ -451,6 +450,7 @@ class Cli():
         print (self.G.actorGraph)
         print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
         self.notify(f'Q4. Create actor graph done')
+
 
 def main():
     G = IMDBGraph()

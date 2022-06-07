@@ -2,7 +2,7 @@ import re
 import networkx as nx
 import random
 from heapq import heapreplace
-from numpy import log
+from math import log
 from datetime import datetime
 from itertools import combinations
 

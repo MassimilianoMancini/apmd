@@ -8,7 +8,7 @@ from itertools import combinations
 
 class IMDBGraph():
     """
-    The most important data structure are three graphs: main, production and actor.
+    Graphs are: main, production and actor.
     Methods for import data from file, calculate connected components, BFS 
     and closeness centrality approximation are implemented
     """
@@ -35,9 +35,6 @@ class IMDBGraph():
         self.reForYear = re.compile('(\()(\d\d\d\d)([/IXV])*(\))')
         self.reActorMovieYear = re.compile('(.+)\t(.+(?<=\()(\d\d\d\d)(?=[/IXV]*\)).*)')
 
-        # Global time for DFS
-        self.dfstime = 0
-
         # Structure to record top ten actor wrt closeness centrality approx
         self.topTenCentralActors = [(0, '')]*10
 
@@ -46,8 +43,7 @@ class IMDBGraph():
 
         # Structure to record couple of actor that most worked together
         self.topActorCouple = [0, '', '']
-
-    
+  
     def setCli(self, cli):
         """
         Set cli interface to send notification messages
@@ -143,20 +139,21 @@ class IMDBGraph():
         for line in f:
             actor, movie, year, failure = self.getValues(line, log)
             if not failure:
+                decade = self.getDecade(year)
                 self.addNodeToMainGraph(actor, movie, year)
-                self.addNodeToProdGraph(actor, self.getDecade(year))
+                self.addNodeToProdGraph(actor, decade)
             self.cli.message(f'Lines read: {i:,}', '\r')
             i += 1
         log.close
         f.close
 
-    def addNodeToMainGraph(self, actor, movie, year):
+    def addNodeToMainGraph(self, actor, movie, movieYear):
         """
         Add a single node to main graph. Default attributes on node are setted.
         It also feed the list of movies that will be used in other methods
         """
         self.mainGraph.add_node(actor, type='actor', color='white', dist = 0, totdist = 0, chat = None)
-        self.mainGraph.add_node(movie, type='movie', year=year, color='white', dist = 0, totdist = 0, chat = None)
+        self.mainGraph.add_node(movie, type='movie', year=movieYear, color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_edge(actor, movie)
         self.movies.add(movie)
 
@@ -188,6 +185,28 @@ class IMDBGraph():
                 mostProductiveActor = actor
         return mostProductiveActor, max
     
+    def cHat(self, decade, eps):
+        """
+        Calculates approximated closeness centrality (c-hat) for all nodes of
+        main graph. Approximation is achieved doing k BFSs from different
+        k vertexes randomly sampled. If k is in the order of theta log(n)/eps^2
+        than the stimator is proven to be correct
+        In order to retrieve the top 10 most central actor, a heap data
+        structure (heapq) is used. 
+        """
+        cc = self._getFilteredBiggestCC(decade)
+        subGraph = self.mainGraph.subgraph(cc)
+        n = subGraph.number_of_nodes()
+        k = min(int(log(n)/(eps*eps)) + 1, n)
+        self.cli.message(f'Need to do {k} BFSs')
+        random_nodes = random.sample(list(subGraph.nodes()), k)
+        self._calcSoDForNode(subGraph, random_nodes)
+        for node, data in subGraph.nodes.data():
+            cHat = (k*(n-1))/(n*(max(data['totdist'],1)))
+            data['chat'] = cHat
+            if data['type'] == 'actor' and cHat > self.topTenCentralActors[0][0]:
+                heapreplace(self.topTenCentralActors, (cHat, node))
+
     def _getFilteredBiggestCC(self, decade):
         """
         Returns the biggest connected component filtered by year
@@ -243,29 +262,8 @@ class IMDBGraph():
             self.mainGraph.nodes[currentNode]['color'] = 'black'
         return cc
 
-    def cHat(self, decade, eps):
-        """
-        Calculates approximated closeness centrality (c-hat) for all nodes of
-        main graph. Approximation is achieved doing k BFSs from different
-        k vertexes randomly sampled. If k is in the order of theta log(n)/eps^2
-        than the stimator is proven to be correct
-        In order to retrieve the top 10 most central actor, a heap data
-        structure (heapq) is used. 
-        """
-        cc = self._getFilteredBiggestCC(decade)
-        subGraph = self.mainGraph.subgraph(cc)
-        n = subGraph.number_of_nodes()
-        k = min(int(log(n)/(eps*eps)) + 1, n)
-        self.cli.message(f'Need to do {k} BFSs')
-        random_nodes = random.sample(list(subGraph.nodes()), k)
-        self.calcSoDForNode(subGraph, random_nodes)
-        for node, data in subGraph.nodes.data():
-            cHat = (k*(n-1))/(n*(max(data['totdist'],1)))
-            data['chat'] = cHat
-            if data['type'] == 'actor' and cHat > self.topTenCentralActors[0][0]:
-                heapreplace(self.topTenCentralActors, (cHat, node))
                            
-    def calcSoDForNode(self, graph, random_nodes):
+    def _calcSoDForNode(self, graph, random_nodes):
         """
         Calculates the sum of distances for every node from a sample of
         random nodes. The sum it is used to calculate the stimated closeness 
@@ -342,6 +340,7 @@ class IMDBGraph():
                         self.actorGraph.add_edge(actor1, actor2, weight = 1)
             i = i + 1
             self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
+
 
 class Cli():
     """

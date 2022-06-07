@@ -15,9 +15,9 @@ Riporto qui i punti più importanti che intendo realizzare e seguire la conduzio
    5. Costruire il grafo degli attori dove l'arco viene tracciato se due attori hanno recitato insieme nello stesso film e dire quali siano gli attori che hanno collaborato di più
    
 ## Strutture dati
-- G: Grafo principale
-- A: Grafo degli attori di cui al punto 5. A ogni nuovo inserimento creo tanti edge tra l'attore e gli attori del film
-- P: Grafo della produttività dove si hanno i seguenti nodi: anno che ha come attributo l'attore più prolifico e un arco pesato verso i nodi di tipo attore. Il peso indica il numero di film fatti dall'attore fino alla decade di cui al nodo anno. In fase di lettura del file, per ogni attore si crea o incrementa di uno il peso dell'arco. All'inizio l'anno avrà come attore più prolifico il primo con un arco di peso 1. Ogni volta che viene aggiunto un arco nel grafo principale si utilizza l'informazione sull'anno per aggiungere un nuovo arco oppure incrementare il peso di un arco. Se si procede con un incremento allora si verifica se il valore del nodo anno è minore di quello dell'arco appena aggiornato e se sì, si procede aggiornando gli attributi del nodo anno (n. film e attore). (funzione decade(year))
+- mainGraph: Grafo principale
+- actorGraph: Grafo degli attori di cui al punto 5. Creato a partire da G
+- prodGraph: Grafo della produttività dove si hanno i seguenti nodi: anno che ha come attributo l'attore più prolifico e un arco pesato verso i nodi di tipo attore. Il peso indica il numero di film fatti dall'attore fino alla decade di cui al nodo anno. In fase di lettura del file, per ogni attore si crea o incrementa di uno il peso dell'arco. All'inizio l'anno avrà come attore più prolifico il primo con un arco di peso 1. Ogni volta che viene aggiunto un arco nel grafo principale si utilizza l'informazione sull'anno per aggiungere un nuovo arco oppure incrementare il peso di un arco. Se si procede con un incremento allora si verifica se il valore del nodo anno è minore di quello dell'arco appena aggiornato e se sì, si procede aggiornando gli attributi del nodo anno (n. film e attore). (funzione decade(year))
 Il ricorso al grafo al posto di altre strutture dati, è giustificato dalla funzione hash che evita il ricorso a dizionari di trascodifica (attore - intero).
 
 ### Ciclo principale di caricamento dati
@@ -26,37 +26,22 @@ Il ciclo principale carica di dati dal file di testo nelle strutture dati prepos
 - Legge riga
     - estrae attore, film, anno
     - se incontra problemi (anno non presente, oppure arco già presente), genera apposito file di log 
-    - crea un nuovo arco nel grafo principale G
-    - crea un nuovo arco nel grafo produttività P
+    - crea un nuovo arco nel grafo principale 
+    - crea un nuovo arco nel grafo produttività 
 
 ### Question 1
-Generare le sommatorie in fase di caricmento costa troppo tempo. Decido di suddividere i tempi in due: tengo basso il caricamento mettendo per ogni nodo solo la decade in corso e non le precedenti
-In fase di richiamo della funzione, dovrò ciclare su tutti i nodi decade dall'inizio fino a untilDecade. Per ogni attore mi tengo un dizionario con nome attore e 
-Accedo al nodo decade e restituisco il nome dell'attore (attributo del nodo).
+In fase di richiamo della funzione, dovrò ciclare su tutti i nodi decade dalla decade data in input fino all'ultima decade. 
+Accedo al nodo decade e restituisco il nome dell'attore (attributo del nodo) con l'arco di peso maggiore.
 
 ### Question 2
-#### Trovare i film entro l'anno x
-A partire dal grafo principale scorro i nodi dei film, se il film rientra nel periodo, lo aggiungo a un nuovo grafo Temp con tutti i suoi nodi
 #### Trovare la più grande componente connessa
-Eseguire l'algoritmo don DFS e tempi di inizio e fine sul sottografo fatto precedentemente. I nodi che ne fanno parte costituiscono un nuovo grafo temporaneo
+Eseguire l'algoritmo con BFS filtrata anche per anno
 #### Approssimare la centralità di tutti i nodi
-Su questo ultimo grafo scorrere tutti i nodi, per ognuno individuare k altri nodi a caso e calcolare c-hat. In un contatore tenersi i 10 attori con c-hat maggiore
+Eseguire k BFS e accumulare in apposito attributo di nodo la distanza totale. Poi scorrere tutti i nodi e calcolare la closeness centrality approssimata. Utilizzare una struttura heap per mantenere i top ten actors
 
 
 ### Question 3
-```
-max = 1
-for film1 in films if film1.degree > max
+Si fa l'intersezione tra tutti i film a distanza 2 con tre livelli di ciclo: movie1, actor, movie2. Si salta movie1 e movie2 quando la loro cardinalità è minore di quella incontrata, si salta actor se cardinalità minore di 2
 
-    if max = 1 then max = 2
-    for actor in film1.actors if actor.degree > max
-        visited = null
-        for film2 in actor.films if not in visited and film2.degree > max
-            n = intersect(set(film1), set(film2))
-            if n > max
-                max = n
-                filmI = film1
-                filmII = film2
-        visited = visited + film2
-
-```
+### Question 4
+Si cicla su tutti i film con cardinalità almeno 2. Per ogni film si creano combinations di archi tra tutti gli attori. Nel caso di arco già presente, se ne aumenta il peso

@@ -5,7 +5,6 @@ from heapq import heapreplace
 from numpy import log
 from datetime import datetime
 from itertools import combinations
-from os.path import exists
 
 class IMDBGraph():
     """
@@ -108,15 +107,10 @@ class IMDBGraph():
         """
         Exposed method to let user choose fast or verbose mode of import
         """
-        if not exists(path):
-            self.cli.message(f'File {path} not found. Please generate a new sample or copy the full file')
-            return False
+        if verbose:
+            self._createFromFileVerbose(path)
         else:
-            if verbose:
-                self._createFromFileVerbose(path)
-            else:
-                self._createFromFileFast(path)
-            return True
+            self._createFromFileFast(path)
         
     def _createFromFileFast(self, path):
         """
@@ -355,8 +349,6 @@ class Cli():
     """
     def __init__(self, G):
         self.G = G
-        self.est2 = ''
-        self.closeMessage = ''
 
     def notify(self, string):
         """
@@ -374,20 +366,16 @@ class Cli():
         """
         Import graph cli
         """
-        est = ''
-
         print ('\n')
         print ('-----------------------------------------')
         print ('IMDB Graph project (Massimiliano Mancini)')
         print ('-----------------------------------------')
-        f1 = int (input('Select file to import or generate a new sample \n[1] Full\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
+        f1 = int (input('Select file to import or generate a new sample \n[1] Full DB\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
 
         if f1 == 0:
             exit()
         elif f1 == 1:
             path = 'imdb-actors-actresses-movies.tsv'
-            self.est2 = ' (est. 25\')'
-            self.closeMessage = 'Exit from program, est. 50\', I don\'t know why...'
         elif f1 == 2:
             path = 'sample.tsv'
         elif f1 == 3:
@@ -402,24 +390,20 @@ class Cli():
         elif f2 == 1:
             verbose = False
             way = 'fast mode'
-            if f1 == 1:
-                est = ' (est. 2\')'
         elif f2 ==2:
             verbose = True
             way = 'verbose mode'
-            if f1 == 1:
-                est = ' (est. 4\')'
    
-        if self.G.createFromFile(path, verbose):
-            self.notify(f'Import data {way} start{est}')
-            print ('Main graph')
-            print (self.G.mainGraph)
-            print (f'There are {len(self.G.movies)} movies and {self.G.mainGraph.number_of_nodes() - len(self.G.movies)} actors')
-            print ('Producion graph')
-            print (self.G.prodGraph)
-            self.notify(f'Import data {way} done')
-        else:
-            exit()
+            
+        self.notify(f'Import data {way} start (est. 2-4\' with full DB)')
+        self.G.createFromFile(path, verbose)
+        print ('Main graph')
+        print (self.G.mainGraph)
+        print (f'There are {len(self.G.movies)} movies and {self.G.mainGraph.number_of_nodes() - len(self.G.movies)} actors')
+        print ('Producion graph')
+        print (self.G.prodGraph)
+        self.notify(f'Import data {way} done')
+
 
     def mostProductiveActor(self):
         """
@@ -461,7 +445,7 @@ class Cli():
         Question 4, create the actor graph and show the two actors that 
         partecipate togheter to the biggest number of movies
         """
-        self.notify(f'Q4. Create actor graph start{self.est2}')
+        self.notify(f'Q4. Create actor graph start (est. 25\' with full DB)')
         self.G.createActorGraph()
         nOfMovies, actor1, actor2 = self.G.topActorCouple
         print ('\nActor graph')
@@ -484,7 +468,7 @@ def main():
     print('\n')
     cli.createActorGraph()
     print('\n')
-    print(cli.closeMessage)
+    print('Closing script, est. 50\' with full DB')
 
 if __name__ == "__main__":
     main()

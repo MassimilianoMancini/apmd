@@ -424,7 +424,7 @@ class Cli():
         y = int(input('Q2.3: Select decade (1930-2020) for biggest connected component\n[2020]-> ') or "2020")
         eps = float(input('Q2.3: Set the epsilon\n[0.1]-> ') or "0.1")
         self.notify(f'Calculate c-hat for all nodes in the biggest CC until year {y} start')
-        biggestCC = self.G.cHat(y, eps)
+        self.G.cHat(y, eps)
         print ('Most central actors are:')
         for chat, actor in sorted(self.G.topTenCentralActors, reverse=True):
             print (f'{actor:30s} \t{chat:.5f}')

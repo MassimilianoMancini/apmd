@@ -38,13 +38,20 @@ class IMDBGraph():
         # Global time for DFS
         self.dfstime = 0
 
+        # Structure to record top ten actor wrt closeness centrality approx
         self.topTenCentralActors = [(0, '')]*10
 
+        # Set with movie titles
         self.movies = set()
 
+        # Structure to record couple of actor that most worked together
         self.topActorCouple = [0, '', '']
 
+    
     def setCli(self, cli):
+        """
+        Set cli interface to send notification messages
+        """
         self.cli = cli
     
     def generateSample(self, fraction):
@@ -104,7 +111,7 @@ class IMDBGraph():
             self._createFromFileVerbose(path)
         else:
             self._createFromFileFast(path)
-     
+        
     def _createFromFileFast(self, path):
         """
         Create main graph and production graph from input file in a fast way. 
@@ -288,7 +295,6 @@ class IMDBGraph():
                 graph.nodes[current]['color'] = 'black'
             i += 1
             self.cli.notify(f'BFS n. {i} done')
-        return
 
     def mostSharedMovies(self):
         """
@@ -304,7 +310,7 @@ class IMDBGraph():
                 for actor in self.mainGraph[movie1]:
                     if self.mainGraph.degree[actor] > 1:
                         for movie2 in self.mainGraph[actor]:
-                            if self.mainGraph.degree[movie2] > maxShared and movie2 != movie1:
+                            if (self.mainGraph.degree[movie2] > maxShared) and (movie2 != movie1):
                                 nOfSharedActors = len(set(self.mainGraph[movie1]).intersection(set(self.mainGraph[movie2])))
                                 if nOfSharedActors > maxShared:
                                     maxShared = nOfSharedActors
@@ -328,9 +334,10 @@ class IMDBGraph():
             if len(m) > 1:
                 for actor1, actor2 in combinations(m, 2):
                     if self.actorGraph.has_edge(actor1, actor2):
-                        self.actorGraph.edges[actor1, actor2]['weight'] += 1
-                        if self.topActorCouple[0] < self.actorGraph.edges[actor1, actor2]['weight']:
-                            self.topActorCouple = [self.actorGraph.edges[actor1, actor2]['weight'], actor1, actor2]
+                        newWeight = self.actorGraph.edges[actor1, actor2]['weight'] + 1
+                        self.actorGraph.edges[actor1, actor2]['weight'] = newWeight
+                        if self.topActorCouple[0] < newWeight:
+                            self.topActorCouple = [newWeight, actor1, actor2]
                     else:
                         self.actorGraph.add_edge(actor1, actor2, weight = 1)
             i = i + 1
@@ -342,8 +349,6 @@ class Cli():
     """
     def __init__(self, G):
         self.G = G
-        self.est2 = ''
-        self.closeMessage = ''
 
     def notify(self, string):
         """
@@ -361,20 +366,16 @@ class Cli():
         """
         Import graph cli
         """
-        est = ''
-
         print ('\n')
         print ('-----------------------------------------')
         print ('IMDB Graph project (Massimiliano Mancini)')
         print ('-----------------------------------------')
-        f1 = int (input('Select file to import or generate a new sample \n[1] Full\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
+        f1 = int (input('Select file to import or generate a new sample \n[1] Full DB\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
 
         if f1 == 0:
             exit()
         elif f1 == 1:
             path = 'imdb-actors-actresses-movies.tsv'
-            self.est2 = ' (est. 25\')'
-            self.closeMessage = 'Exit from program, est. 50\', I don\'t know why...'
         elif f1 == 2:
             path = 'sample.tsv'
         elif f1 == 3:
@@ -389,15 +390,12 @@ class Cli():
         elif f2 == 1:
             verbose = False
             way = 'fast mode'
-            if f1 == 1:
-                est = ' (est. 2\')'
         elif f2 ==2:
             verbose = True
             way = 'verbose mode'
-            if f1 == 1:
-                est = ' (est. 4\')'
-
-        self.notify(f'Import data {way} start{est}')
+   
+            
+        self.notify(f'Import data {way} start (est. 2-4\' with full DB)')
         self.G.createFromFile(path, verbose)
         print ('Main graph')
         print (self.G.mainGraph)
@@ -405,6 +403,7 @@ class Cli():
         print ('Producion graph')
         print (self.G.prodGraph)
         self.notify(f'Import data {way} done')
+
 
     def mostProductiveActor(self):
         """
@@ -446,7 +445,7 @@ class Cli():
         Question 4, create the actor graph and show the two actors that 
         partecipate togheter to the biggest number of movies
         """
-        self.notify(f'Q4. Create actor graph start{self.est2}')
+        self.notify(f'Q4. Create actor graph start (est. 25\' with full DB)')
         self.G.createActorGraph()
         nOfMovies, actor1, actor2 = self.G.topActorCouple
         print ('\nActor graph')
@@ -469,8 +468,7 @@ def main():
     print('\n')
     cli.createActorGraph()
     print('\n')
-    print(cli.closeMessage)
+    print('Closing script, est. 50\' with full DB')
 
 if __name__ == "__main__":
     main()
-exit()

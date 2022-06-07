@@ -370,7 +370,7 @@ class Cli():
         print ('-----------------------------------------')
         print ('IMDB Graph project (Massimiliano Mancini)')
         print ('-----------------------------------------')
-        f1 = int (input('Select file to import or generate a new sample \n[1] Full DB\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
+        f1 = int (input('Select file to import or generate a new sample \n[1] Full IMDB archive\n[2] Sample\n[3] Create new sample and exit\n[0] Exit\n-> '))
 
         if f1 == 0:
             exit()

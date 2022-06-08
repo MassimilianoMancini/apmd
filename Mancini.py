@@ -21,7 +21,7 @@ class IMDBGraph():
         # Main graph as requested for basic project
         self.mainGraph = nx.Graph()
         
-        # Actor graph as requesto for question 4
+        # Actor graph as requested for question 4
         self.actorGraph = nx.Graph()
 
         # Most productive actor in last decades for question 1.C
@@ -319,10 +319,10 @@ class IMDBGraph():
     def createActorGraph(self):
         """
         Create the actor graph with weighted edges between actors. The weight of
-        edges represents the number of movies the two actors do toghether. 
+        edges represents the number of movies the two actors did toghether. 
         The main iteration is on movie. For each we create as many edges as 
         the combinations of actors in the movie. If a edge already exists, its
-        weght is incremented by 1
+        weght is incremented
         """
 
         i = 0

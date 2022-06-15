@@ -1,10 +1,11 @@
 import re
 import networkx as nx
 import random
+import gc
 from heapq import heapreplace
 from math import log
 from datetime import datetime
-from itertools import combinations
+
 
 class IMDBGraph():
     """
@@ -169,7 +170,6 @@ class IMDBGraph():
             if self.prodGraph.has_edge(decade, actor):
                 self.prodGraph.edges[decade, actor]['weight'] += 1
             else:
-                self.prodGraph.add_node(actor, type='actor')
                 self.prodGraph.add_edge(decade, actor, weight = 1)
 
     def getMostProductiveActorUntil(self, decade):
@@ -324,22 +324,24 @@ class IMDBGraph():
         the combinations of actors in the movie. If a edge already exists, its
         weght is incremented
         """
-
+        gc.disable()
         i = 0
         md = len(self.movies)
         for movie in self.movies:
-            m = self.mainGraph[movie]
-            if len(m) > 1:
-                for actor1, actor2 in combinations(m, 2):
-                    if self.actorGraph.has_edge(actor1, actor2):
-                        newWeight = self.actorGraph.edges[actor1, actor2]['weight'] + 1
-                        self.actorGraph.edges[actor1, actor2]['weight'] = newWeight
-                        if self.topActorCouple[0] < newWeight:
-                            self.topActorCouple = [newWeight, actor1, actor2]
-                    else:
-                        self.actorGraph.add_edge(actor1, actor2, weight = 1)
+            if len(self.mainGraph[movie]) > 1:
+                actorList = list(self.mainGraph.neighbors(movie))
+                for idx1 in range(len(actorList) - 1):
+                    for idx2 in range(1, len(actorList)):
+                        if self.actorGraph.has_edge(actorList[idx1], actorList[idx2]):
+                            newWeight = self.actorGraph.edges[actorList[idx1], actorList[idx2]]['weight'] + 1
+                            self.actorGraph.edges[actorList[idx1], actorList[idx2]]['weight'] = newWeight
+                            if self.topActorCouple[0] < newWeight:
+                                self.topActorCouple = [newWeight, actorList[idx1], actorList[idx2]]
+                        else:
+                            self.actorGraph.add_edge(actorList[idx1], actorList[idx2], weight = 1)
             i = i + 1
             self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
+        gc.enable()
 
 
 class Cli():

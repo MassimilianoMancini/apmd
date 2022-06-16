@@ -1,3 +1,4 @@
+from collections import defaultdict
 import re
 import networkx as nx
 import random
@@ -302,18 +303,23 @@ class IMDBGraph():
         of actor. This way we find all movies of distance 2. We get cardinality
         of intersection between the two movies and save the maximum
         """
+
+        m2mGraph = nx.Graph()
         maxShared = 0
-        for movie1 in self.movies:
+        for movie1 in self.movies:     
             if self.mainGraph.degree[movie1] > maxShared:
                 for actor in self.mainGraph[movie1]:
                     if self.mainGraph.degree[actor] > 1:
                         for movie2 in self.mainGraph[actor]:
-                            if (self.mainGraph.degree[movie2] > maxShared) and (movie2 != movie1):
+                            if (self.mainGraph.degree[movie2] > maxShared) and (movie2 != movie1) and (not m2mGraph.has_edge(movie1, movie2)):
+                                m2mGraph.add_edge(movie1, movie2)
                                 nOfSharedActors = len(set(self.mainGraph[movie1]).intersection(set(self.mainGraph[movie2])))
                                 if nOfSharedActors > maxShared:
                                     maxShared = nOfSharedActors
                                     m1 = movie1
                                     m2 = movie2
+        
+        m2mGraph.clear()
         return m1, m2, maxShared
 
     def createActorGraph(self):
@@ -324,14 +330,13 @@ class IMDBGraph():
         the combinations of actors in the movie. If a edge already exists, its
         weght is incremented
         """
-        gc.disable()
         i = 0
         md = len(self.movies)
         for movie in self.movies:
             if len(self.mainGraph[movie]) > 1:
                 actorList = list(self.mainGraph.neighbors(movie))
                 for idx1 in range(len(actorList) - 1):
-                    for idx2 in range(1, len(actorList)):
+                    for idx2 in range(idx1+1, len(actorList)):
                         if self.actorGraph.has_edge(actorList[idx1], actorList[idx2]):
                             newWeight = self.actorGraph.edges[actorList[idx1], actorList[idx2]]['weight'] + 1
                             self.actorGraph.edges[actorList[idx1], actorList[idx2]]['weight'] = newWeight
@@ -341,7 +346,53 @@ class IMDBGraph():
                             self.actorGraph.add_edge(actorList[idx1], actorList[idx2], weight = 1)
             i = i + 1
             self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
-        gc.enable()
+
+    def createActorGraph2(self):
+        """
+        Create the actor graph with weighted edges between actors. The weight of
+        edges represents the number of movies the two actors did toghether. 
+        The main iteration is on movie. For each we create as many edges as 
+        the combinations of actors in the movie. If a edge already exists, its
+        weght is incremented
+        """
+        i = 0
+        md = len(self.movies)
+        for movie in self.movies:
+            if len(self.mainGraph[movie]) > 1:
+                actorList = list(self.mainGraph.neighbors(movie))
+                for idx1 in range(len(actorList) - 1):
+                    for idx2 in range(idx1+1, len(actorList)):
+                        self.actorGraph.add_edge(actorList[idx1], actorList[idx2])
+            i = i + 1
+            self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
+
+    def createActorGraph3(self):
+        """
+        Create the actor graph with weighted edges between actors. The weight of
+        edges represents the number of movies the two actors did toghether. 
+        The main iteration is on movie. For each we create as many edges as 
+        the combinations of actors in the movie. If a edge already exists, its
+        weght is incremented
+        """
+
+        actorDict = defaultdict(lambda: "default", key=0)
+
+        i = 0
+        max = 0
+        md = len(self.movies)
+        for movie in self.movies:
+            if len(self.mainGraph[movie]) > 1:
+                actorList = list(self.mainGraph.neighbors(movie))
+                for idx1 in range(len(actorList) - 1):
+                    for idx2 in range(idx1+1, len(actorList)):
+                        key = sorted([actorList[idx1], actorList[idx2]])
+                        actorDict[key] += 1
+                        if actorDict[key] > max:
+                            max = actorDict[key]
+                            maxKey = key
+            i = i + 1
+            self.cli.message(f'Movies processed for max {i:,} on {md:,}', '\r')
+        self.topActorCouple = [max, maxKey[0], maxKey[1]]
 
 
 class Cli():
@@ -446,13 +497,15 @@ class Cli():
         partecipate togheter to the biggest number of movies
         """
         self.notify(f'Q4. Create actor graph start (est. 25\' with full DB)')
-        self.G.createActorGraph()
-        nOfMovies, actor1, actor2 = self.G.topActorCouple
+        self.G.createActorGraph2()
         print ('\nActor graph')
         print (self.G.actorGraph)
-        print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
         self.notify(f'Q4. Create actor graph done')
-
+        self.notify(f'Q4. Most hared actors start')
+        self.G.createActorGraph3()
+        nOfMovies, actor1, actor2 = self.G.topActorCouple
+        print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
+        self.notify(f'Q4. Most hared actors stop')
 
 def main():
     G = IMDBGraph()
@@ -467,6 +520,7 @@ def main():
     print('\n')
     cli.sharingMovies()
     print('\n')
+    gc.disable()
     cli.createActorGraph()
     print('\n')
     print('Closing script, est. 50\' with full DB')

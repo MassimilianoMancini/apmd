@@ -347,54 +347,6 @@ class IMDBGraph():
             i = i + 1
             self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
 
-    def createActorGraph2(self):
-        """
-        Create the actor graph with weighted edges between actors. The weight of
-        edges represents the number of movies the two actors did toghether. 
-        The main iteration is on movie. For each we create as many edges as 
-        the combinations of actors in the movie. If a edge already exists, its
-        weght is incremented
-        """
-        i = 0
-        md = len(self.movies)
-        for movie in self.movies:
-            if len(self.mainGraph[movie]) > 1:
-                actorList = list(self.mainGraph.neighbors(movie))
-                for idx1 in range(len(actorList) - 1):
-                    for idx2 in range(idx1+1, len(actorList)):
-                        self.actorGraph.add_edge(actorList[idx1], actorList[idx2])
-            i = i + 1
-            self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
-
-    def createActorGraph3(self):
-        """
-        Create the actor graph with weighted edges between actors. The weight of
-        edges represents the number of movies the two actors did toghether. 
-        The main iteration is on movie. For each we create as many edges as 
-        the combinations of actors in the movie. If a edge already exists, its
-        weght is incremented
-        """
-
-        actorDict = defaultdict(lambda: "default", key=0)
-
-        i = 0
-        max = 0
-        md = len(self.movies)
-        for movie in self.movies:
-            if len(self.mainGraph[movie]) > 1:
-                actorList = list(self.mainGraph.neighbors(movie))
-                for idx1 in range(len(actorList) - 1):
-                    for idx2 in range(idx1+1, len(actorList)):
-                        key = sorted([actorList[idx1], actorList[idx2]])
-                        actorDict[key] += 1
-                        if actorDict[key] > max:
-                            max = actorDict[key]
-                            maxKey = key
-            i = i + 1
-            self.cli.message(f'Movies processed for max {i:,} on {md:,}', '\r')
-        self.topActorCouple = [max, maxKey[0], maxKey[1]]
-
-
 class Cli():
     """
     Command line interface, used to get some input and display some output
@@ -497,15 +449,12 @@ class Cli():
         partecipate togheter to the biggest number of movies
         """
         self.notify(f'Q4. Create actor graph start (est. 25\' with full DB)')
-        self.G.createActorGraph2()
+        self.G.createActorGraph()
         print ('\nActor graph')
         print (self.G.actorGraph)
-        self.notify(f'Q4. Create actor graph done')
-        self.notify(f'Q4. Most hared actors start')
-        self.G.createActorGraph3()
         nOfMovies, actor1, actor2 = self.G.topActorCouple
         print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
-        self.notify(f'Q4. Most hared actors stop')
+        self.notify(f'Q4. Create actor graph done')
 
 def main():
     G = IMDBGraph()

@@ -1,4 +1,3 @@
-from collections import defaultdict
 import re
 import networkx as nx
 import random

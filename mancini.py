@@ -2,6 +2,7 @@ from collections import defaultdict
 import re
 import networkx as nx
 import random
+import os
 import gc
 from heapq import heapreplace
 from math import log
@@ -480,6 +481,7 @@ class Cli():
         self.notify(f'Q4. Create actor graph done')
 
 def main():
+    gc.disable()
     G = IMDBGraph()
     cli = Cli(G)
     G.setCli(cli)
@@ -492,10 +494,8 @@ def main():
     print('\n')
     cli.sharingMovies()
     print('\n')
-    gc.disable()
     cli.createActorGraph()
-    print('\n')
-    print('Closing script, est. 50\' with full DB')
+    os._exit(0)
 
 if __name__ == "__main__":
     main()

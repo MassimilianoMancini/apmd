@@ -43,8 +43,8 @@ class IMDBGraph():
         # Set with movie titles
         self.movies = set()
 
-        # Structure to record couple of actor that most worked together
-        self.topActorCouple = [0, '', '']
+        # Set with actor names
+        self.actors = set()
   
     def setCli(self, cli):
         """
@@ -158,6 +158,7 @@ class IMDBGraph():
         self.mainGraph.add_node(movie, type='movie', year=movieYear, color='white', dist = 0, totdist = 0, chat = None)
         self.mainGraph.add_edge(actor, movie)
         self.movies.add(movie)
+        self.actors.add(actor)
 
     def addNodeToProdGraph(self, actor, fromDecade):
         """
@@ -322,6 +323,34 @@ class IMDBGraph():
         m2mGraph.clear()
         return m1, m2, maxShared
 
+    def mostSharedActors(self):
+        """
+        Returns the couple of actors that share the biggest number of movies.
+        First outer iteration is on actors of graph (actor1), the second iteration 
+        is on movies of actor1, the third iteration is again on actors (actor2)
+        of movie. This way we find all actors of distance 2. We get cardinality
+        of intersection between the two actors and save the maximum
+        """
+
+        a2aGraph = nx.Graph()
+        maxShared = 0
+        for actor1 in self.actors:     
+            if self.mainGraph.degree[actor1] > maxShared:
+                for movie in self.mainGraph[actor1]:
+                    if self.mainGraph.degree[movie] > 1:
+                        for actor2 in self.mainGraph[movie]:
+                            if (self.mainGraph.degree[actor2] > maxShared) and (actor2 != actor1) and (not a2aGraph.has_edge(actor1, actor2)):
+                                a2aGraph.add_edge(actor1, actor2)
+                                nOfSharedMovies = len(set(self.mainGraph[actor1]).intersection(set(self.mainGraph[actor2])))
+                                if nOfSharedMovies > maxShared:
+                                    maxShared = nOfSharedMovies
+                                    a1 = actor1
+                                    a2 = actor2
+        
+        a2aGraph.clear()
+        return a1, a2, maxShared
+
+
     def createActorGraph(self):
         """
         Create the actor graph with weighted edges between actors. The weight of
@@ -337,13 +366,7 @@ class IMDBGraph():
                 actorList = list(self.mainGraph.neighbors(movie))
                 for idx1 in range(len(actorList) - 1):
                     for idx2 in range(idx1+1, len(actorList)):
-                        if self.actorGraph.has_edge(actorList[idx1], actorList[idx2]):
-                            newWeight = self.actorGraph.edges[actorList[idx1], actorList[idx2]]['weight'] + 1
-                            self.actorGraph.edges[actorList[idx1], actorList[idx2]]['weight'] = newWeight
-                            if self.topActorCouple[0] < newWeight:
-                                self.topActorCouple = [newWeight, actorList[idx1], actorList[idx2]]
-                        else:
-                            self.actorGraph.add_edge(actorList[idx1], actorList[idx2], weight = 1)
+                        self.actorGraph.add_edge(actorList[idx1], actorList[idx2])
             i = i + 1
             self.cli.message(f'Movies processed {i:,} on {md:,}', '\r')
 
@@ -449,10 +472,10 @@ class Cli():
         partecipate togheter to the biggest number of movies
         """
         self.notify(f'Q4. Create actor graph start (est. 25\' with full DB)')
+        actor1, actor2, nOfMovies = self.G.mostSharedActors()
         self.G.createActorGraph()
         print ('\nActor graph')
-        print (self.G.actorGraph)
-        nOfMovies, actor1, actor2 = self.G.topActorCouple
+        print (self.G.actorGraph) 
         print (f'Most shared actors are {actor1} and {actor2} with {nOfMovies} movies')
         self.notify(f'Q4. Create actor graph done')
 

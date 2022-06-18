@@ -471,7 +471,7 @@ class Cli():
         Question 4, create the actor graph and show the two actors that 
         partecipate togheter to the biggest number of movies
         """
-        self.notify(f'Q4. Create actor graph start (est. 25\' with full DB)')
+        self.notify(f'Q4. Create actor graph start (est. 8\' with full DB)')
         actor1, actor2, nOfMovies = self.G.mostSharedActors()
         self.G.createActorGraph()
         print ('\nActor graph')
